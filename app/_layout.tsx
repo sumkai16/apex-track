@@ -6,7 +6,7 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace('/')
+        router.replace('/(tabs)/home')
       } else {
         router.replace('/(auth)/login')
       }
