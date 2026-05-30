@@ -1,13 +1,11 @@
 import { Link, router } from 'expo-router'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import {
-    Alert, KeyboardAvoidingView, Platform,
-    StyleSheet,
-    Text, TextInput, TouchableOpacity,
+    Alert, Image, KeyboardAvoidingView, Platform,
+    StyleSheet, Text, TextInput, TouchableOpacity,
     View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
-
 export default function LoginScreen() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -34,7 +32,7 @@ export default function LoginScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <View style={styles.inner}>
-                <Text style={styles.logo}>APEX TRACK</Text>
+                <Image source={require('../../assets/images/logo2.png')} style={styles.logo} />
                 <Text style={styles.subtitle}>Welcome back</Text>
 
                 <TextInput
@@ -81,8 +79,10 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#050505' },
     inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
     logo: {
-        fontSize: 32, fontWeight: 'bold', color: '#800000',
-        textAlign: 'center', letterSpacing: 4, marginBottom: 8
+        width: 340,
+        height: 140,
+        alignSelf: 'center',
+        marginBottom: 24,
     },
     subtitle: {
         fontSize: 16, color: '#666',
