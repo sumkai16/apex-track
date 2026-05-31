@@ -102,7 +102,7 @@ export default function HomeScreen() {
           onPress={() => router.push("/(tabs)/log")}
           activeOpacity={0.85}
         >
-          <Text style={styles.heroLabel}>TODAY'S WORKOUT</Text>
+          <Text style={styles.heroLabel}>TODAYS WORKOUT</Text>
           <Text style={styles.heroTitle}>Ready to train?</Text>
           <Text style={styles.heroSub}>Tap to start a session</Text>
           <View style={styles.startButton}>
