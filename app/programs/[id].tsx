@@ -23,7 +23,7 @@ interface ProgramExercise {
   order_index: number;
   target_sets: number | null;
   target_reps: number | null;
-  exercises: Exercise[];
+  exercises: Exercise | null;
 }
 
 interface ProgramDay {
@@ -52,14 +52,49 @@ export default function ProgramDetailScreen() {
       fetchProgram();
     }, [id]),
   );
+
+  async function handleDeleteExercise(
+    programExerciseId: string,
+    dayId: string,
+  ) {
+    // 1. Delete from Supabase
+    const { error } = await supabase
+      .from("program_exercises")
+      .delete()
+      .eq("id", programExerciseId);
+
+    if (error) {
+      alert("Failed to delete exercise.");
+      return;
+    }
+
+    // 2. Update local state instantly so the UI reflects the deletion
+    setDays((prevDays) =>
+      prevDays.map((day) => {
+        if (day.id !== dayId) return day;
+        return {
+          ...day,
+          program_exercises: day.program_exercises.filter(
+            (pe) => pe.id !== programExerciseId,
+          ),
+        };
+      }),
+    );
+  }
+
   async function setActive() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
 
-    await supabase.from('programs').update({ is_active: false }).eq('user_id', user.id)
-    await supabase.from('programs').update({ is_active: true }).eq('id', id)
+    await supabase
+      .from("programs")
+      .update({ is_active: false })
+      .eq("user_id", user.id);
+    await supabase.from("programs").update({ is_active: true }).eq("id", id);
 
-    setProgram(prev => prev ? { ...prev, is_active: true } : prev)
+    setProgram((prev) => (prev ? { ...prev, is_active: true } : prev));
   }
   async function fetchProgram() {
     setLoading(true);
@@ -74,12 +109,12 @@ export default function ProgramDetailScreen() {
       .from("program_days")
       .select(
         `
-        id, name, day_order,
-        program_exercises (
-          id, order_index, target_sets, target_reps,
-          exercises ( id, name )
-        )
-      `,
+          id, name, day_order,
+          program_exercises (
+            id, order_index, target_sets, target_reps,
+            exercises ( id, name )
+          )
+        `,
       )
       .eq("program_id", id)
       .order("day_order", { ascending: true });
@@ -120,12 +155,15 @@ export default function ProgramDetailScreen() {
               <Text style={styles.activeBadgeText}>✓ CURRENTLY ACTIVE</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.setActiveBtn} onPress={setActive} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.setActiveBtn}
+              onPress={setActive}
+              activeOpacity={0.8}
+            >
               <Text style={styles.setActiveBtnText}>Set as Active</Text>
             </TouchableOpacity>
           )}
 
-          <Text style={styles.sectionLabel}>WEEKLY SCHEDULE</Text>
           <Text style={styles.sectionLabel}>WEEKLY SCHEDULE</Text>
 
           {days.map((day) => {
@@ -169,7 +207,7 @@ export default function ProgramDetailScreen() {
                           <View style={styles.exerciseRowLeft}>
                             <View style={styles.exerciseDot} />
                             <Text style={styles.exerciseName}>
-                              {pe.exercises?.[0]?.name}
+                              {pe.exercises?.name || "Unknown Exercise"}
                             </Text>
                           </View>
                           <View style={styles.exerciseMeta}>
@@ -178,17 +216,23 @@ export default function ProgramDetailScreen() {
                                 {pe.target_sets}×{pe.target_reps}
                               </Text>
                             ) : null}
+
+                            {/* New Delete Button */}
                             <TouchableOpacity
                               onPress={() =>
-                                router.push(
-                                  `/programs/${id}/day/${day.id}/exercise/${pe.id}/edit`,
-                                )
+                                handleDeleteExercise(pe.id, day.id)
                               }
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              hitSlop={{
+                                top: 10,
+                                bottom: 10,
+                                left: 10,
+                                right: 10,
+                              }}
+                              activeOpacity={0.7}
                             >
                               <Ionicons
-                                name="pencil-outline"
-                                size={14}
+                                name="close-circle-outline"
+                                size={16}
                                 color="#444"
                               />
                             </TouchableOpacity>
@@ -224,23 +268,28 @@ export default function ProgramDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#050505" },
   setActiveBtn: {
-    backgroundColor: '#800000',
+    backgroundColor: "#800000",
     borderRadius: 12,
     paddingVertical: 13,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
-  setActiveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  setActiveBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   activeBadge: {
-    backgroundColor: 'rgba(128,0,0,0.1)',
+    backgroundColor: "rgba(128,0,0,0.1)",
     borderRadius: 12,
     paddingVertical: 13,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(128,0,0,0.3)',
+    borderColor: "rgba(128,0,0,0.3)",
   },
-  activeBadgeText: { color: '#800000', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  activeBadgeText: {
+    color: "#800000",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
