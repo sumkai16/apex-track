@@ -23,7 +23,7 @@ interface ProgramExercise {
   order_index: number;
   target_sets: number | null;
   target_reps: number | null;
-  exercises: Exercise;
+  exercises: Exercise[];
 }
 
 interface ProgramDay {
@@ -52,7 +52,15 @@ export default function ProgramDetailScreen() {
       fetchProgram();
     }, [id]),
   );
+  async function setActive() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
+    await supabase.from('programs').update({ is_active: false }).eq('user_id', user.id)
+    await supabase.from('programs').update({ is_active: true }).eq('id', id)
+
+    setProgram(prev => prev ? { ...prev, is_active: true } : prev)
+  }
   async function fetchProgram() {
     setLoading(true);
     const { data: prog } = await supabase
@@ -107,7 +115,17 @@ export default function ProgramDetailScreen() {
           {program?.description ? (
             <Text style={styles.desc}>{program.description}</Text>
           ) : null}
+          {program?.is_active ? (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>✓ CURRENTLY ACTIVE</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.setActiveBtn} onPress={setActive} activeOpacity={0.8}>
+              <Text style={styles.setActiveBtnText}>Set as Active</Text>
+            </TouchableOpacity>
+          )}
 
+          <Text style={styles.sectionLabel}>WEEKLY SCHEDULE</Text>
           <Text style={styles.sectionLabel}>WEEKLY SCHEDULE</Text>
 
           {days.map((day) => {
@@ -151,7 +169,7 @@ export default function ProgramDetailScreen() {
                           <View style={styles.exerciseRowLeft}>
                             <View style={styles.exerciseDot} />
                             <Text style={styles.exerciseName}>
-                              {pe.exercises?.name}
+                              {pe.exercises?.[0]?.name}
                             </Text>
                           </View>
                           <View style={styles.exerciseMeta}>
@@ -205,6 +223,24 @@ export default function ProgramDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#050505" },
+  setActiveBtn: {
+    backgroundColor: '#800000',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  setActiveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  activeBadge: {
+    backgroundColor: 'rgba(128,0,0,0.1)',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(128,0,0,0.3)',
+  },
+  activeBadgeText: { color: '#800000', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
   topBar: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native'
 import { router } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import {
     Alert,
     ScrollView,
@@ -10,7 +11,6 @@ import {
     View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
-
 interface Program {
     id: string
     name: string
@@ -28,11 +28,14 @@ interface ProgramDay {
 export default function LogScreen() {
     const [program, setProgram] = useState<Program | null>(null)
     const [days, setDays] = useState<ProgramDay[]>([])
+    const [suggestedDayId, setSuggestedDayId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        fetchActiveProgram()
-    }, [])
+    useFocusEffect(
+        useCallback(() => {
+            fetchActiveProgram()
+        }, [])
+    )
 
     async function fetchActiveProgram() {
         const { data: { user } } = await supabase.auth.getUser()
@@ -58,20 +61,45 @@ export default function LogScreen() {
             .eq('program_id', programData.id)
             .order('day_order')
 
-        if (daysData) {
-            const daysWithCount = await Promise.all(
-                daysData.map(async (day) => {
-                    const { count } = await supabase
-                        .from('program_exercises')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('program_day_id', day.id)
-                    return { ...day, exercise_count: count || 0 }
-                })
-            )
-            setDays(daysWithCount)
+        if (!daysData) {
+            setLoading(false)
+            return
         }
 
+        const daysWithCount = await Promise.all(
+            daysData.map(async (day) => {
+                const { count } = await supabase
+                    .from('program_exercises')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('program_day_id', day.id)
+                return { ...day, exercise_count: count || 0 }
+            })
+        )
+
+        setDays(daysWithCount)
+        await resolveSuggestedDay(programData.id, daysData)
         setLoading(false)
+    }
+
+    async function resolveSuggestedDay(programId: string, daysData: { id: string, day_order: number }[]) {
+        const { data: lastSession } = await supabase
+            .from('sessions')
+            .select('program_day_id')
+            .eq('program_id', programId)
+            .eq('status', 'completed')
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .single()
+
+        if (!lastSession) {
+            // No history — suggest day 1
+            setSuggestedDayId(daysData[0]?.id || null)
+            return
+        }
+
+        const lastDayIndex = daysData.findIndex(d => d.id === lastSession.program_day_id)
+        const nextIndex = (lastDayIndex + 1) % daysData.length // wraps to 0 if at end
+        setSuggestedDayId(daysData[nextIndex].id)
     }
 
     async function startSession(day: ProgramDay) {
@@ -129,7 +157,7 @@ export default function LogScreen() {
         return (
             <View style={styles.centered}>
                 <Text style={styles.emptyTitle}>No active program</Text>
-                <Text style={styles.emptyText}>Set up a program first in the Programs tab.</Text>
+                <Text style={styles.emptyText}>Go to Programs and set one as active.</Text>
             </View>
         )
     }
@@ -142,22 +170,32 @@ export default function LogScreen() {
                 <Text style={styles.title}>Choose day</Text>
                 <Text style={styles.sub}>{program.name}</Text>
 
-                {days.map((day) => (
-                    <TouchableOpacity
-                        key={day.id}
-                        style={styles.card}
-                        onPress={() => startSession(day)}
-                        activeOpacity={0.8}
-                    >
-                        <View style={styles.cardContent}>
-                            <View>
-                                <Text style={styles.dayName}>{day.name}</Text>
-                                <Text style={styles.dayMeta}>{day.exercise_count} exercises</Text>
+                {days.map((day) => {
+                    const isSuggested = day.id === suggestedDayId
+                    return (
+                        <TouchableOpacity
+                            key={day.id}
+                            style={[styles.card, isSuggested && styles.cardSuggested]}
+                            onPress={() => startSession(day)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={styles.cardContent}>
+                                <View>
+                                    <View style={styles.nameRow}>
+                                        <Text style={styles.dayName}>{day.name}</Text>
+                                        {isSuggested && (
+                                            <View style={styles.suggBadge}>
+                                                <Text style={styles.suggBadgeText}>NEXT UP</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={styles.dayMeta}>{day.exercise_count} exercises</Text>
+                                </View>
+                                <Text style={styles.arrow}>›</Text>
                             </View>
-                            <Text style={styles.arrow}>›</Text>
-                        </View>
-                    </TouchableOpacity>
-                ))}
+                        </TouchableOpacity>
+                    )
+                })}
             </ScrollView>
         </View>
     )
@@ -171,8 +209,19 @@ const styles = StyleSheet.create({
     title: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 4 },
     sub: { color: '#555', fontSize: 13, marginBottom: 28 },
     card: { backgroundColor: '#111', borderRadius: 12, marginBottom: 10 },
+    cardSuggested: { borderWidth: 1, borderColor: '#800000' },
     cardContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-    dayName: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+    dayName: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    suggBadge: {
+        backgroundColor: 'rgba(128,0,0,0.2)',
+        borderRadius: 6,
+        paddingHorizontal: 7,
+        paddingVertical: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(128,0,0,0.4)',
+    },
+    suggBadgeText: { color: '#800000', fontSize: 9, fontWeight: '700', letterSpacing: 1 },
     dayMeta: { color: '#555', fontSize: 12 },
     arrow: { color: '#800000', fontSize: 20 },
     loadingText: { color: '#555', fontSize: 14 },
