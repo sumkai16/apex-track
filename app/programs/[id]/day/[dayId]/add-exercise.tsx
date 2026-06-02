@@ -55,10 +55,7 @@ export default function AddExerciseScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filtered, setFiltered] = useState<Exercise[]>([]);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Exercise | null>(null);
-  const [sets, setSets] = useState("");
-  const [reps, setReps] = useState("");
-  const [notes, setNotes] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
   // Create exercise modal state
@@ -95,6 +92,18 @@ export default function AddExerciseScreen() {
     }
   }
 
+  function toggleExercise(ex: Exercise) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ex.id)) {
+        next.delete(ex.id);
+      } else {
+        next.add(ex.id);
+      }
+      return next;
+    });
+  }
+
   async function handleCreateExercise() {
     if (!newName.trim()) {
       Alert.alert("Required", "Please enter an exercise name.");
@@ -125,12 +134,12 @@ export default function AddExerciseScreen() {
       return;
     }
 
-    // Add to list and auto-select it
     const newEx = data as Exercise;
     setExercises((prev) =>
       [...prev, newEx].sort((a, b) => a.name.localeCompare(b.name)),
     );
-    setSelected(newEx);
+    // Auto-select the newly created exercise
+    setSelectedIds((prev) => new Set(prev).add(newEx.id));
     setCreating(false);
     setShowCreateModal(false);
     setNewName("");
@@ -139,12 +148,13 @@ export default function AddExerciseScreen() {
   }
 
   async function handleAdd() {
-    if (!selected) {
-      Alert.alert("Required", "Please select an exercise.");
+    if (selectedIds.size === 0) {
+      Alert.alert("Required", "Please select at least one exercise.");
       return;
     }
     setSaving(true);
 
+    // Get current max order_index for this day
     const { data: existing } = await supabase
       .from("program_exercises")
       .select("order_index")
@@ -152,20 +162,20 @@ export default function AddExerciseScreen() {
       .order("order_index", { ascending: false })
       .limit(1);
 
-    const nextIndex =
+    let nextIndex =
       existing && existing.length > 0 ? existing[0].order_index + 1 : 0;
 
-    const { error } = await supabase.from("program_exercises").insert({
+    // Build batch insert payload
+    const payload = Array.from(selectedIds).map((exerciseId, i) => ({
       program_day_id: dayId,
-      exercise_id: selected.id,
-      order_index: nextIndex,
-      target_sets: sets ? parseInt(sets) : null,
-      target_reps: reps ? parseInt(reps) : null,
-      notes: notes.trim() || null,
-    });
+      exercise_id: exerciseId,
+      order_index: nextIndex + i,
+    }));
+
+    const { error } = await supabase.from("program_exercises").insert(payload);
 
     if (error) {
-      Alert.alert("Error", "Failed to add exercise.");
+      Alert.alert("Error", "Failed to add exercises.");
       setSaving(false);
       return;
     }
@@ -173,6 +183,8 @@ export default function AddExerciseScreen() {
     setSaving(false);
     router.back();
   }
+
+  const selectedCount = selectedIds.size;
 
   return (
     <KeyboardAvoidingView
@@ -195,7 +207,10 @@ export default function AddExerciseScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[
+          styles.scroll,
+          selectedCount > 0 && styles.scrollWithFooter,
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -246,107 +261,81 @@ export default function AddExerciseScreen() {
         {/* Exercise list */}
         {filtered.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>SELECT EXERCISE</Text>
-            {filtered.map((ex) => (
-              <TouchableOpacity
-                key={ex.id}
-                style={[
-                  styles.exerciseItem,
-                  selected?.id === ex.id && styles.exerciseItemSelected,
-                ]}
-                onPress={() => setSelected(ex)}
-                activeOpacity={0.75}
-              >
-                <View style={styles.exerciseItemLeft}>
-                  {ex.category ? (
-                    <Text style={styles.exerciseCategory}>
-                      {ex.category.toUpperCase()}
-                    </Text>
-                  ) : null}
-                  <Text style={styles.exerciseItemName}>{ex.name}</Text>
-                  {ex.equipment_type ? (
-                    <Text style={styles.exerciseEquipment}>
-                      {ex.equipment_type}
-                    </Text>
-                  ) : null}
-                </View>
-                {selected?.id === ex.id && (
-                  <Ionicons name="checkmark-circle" size={20} color="#800000" />
-                )}
-              </TouchableOpacity>
-            ))}
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionLabel}>SELECT EXERCISES</Text>
+              {selectedCount > 0 && (
+                <TouchableOpacity onPress={() => setSelectedIds(new Set())}>
+                  <Text style={styles.clearText}>CLEAR ALL</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {filtered.map((ex) => {
+              const isSelected = selectedIds.has(ex.id);
+              return (
+                <TouchableOpacity
+                  key={ex.id}
+                  style={[
+                    styles.exerciseItem,
+                    isSelected && styles.exerciseItemSelected,
+                  ]}
+                  onPress={() => toggleExercise(ex)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.exerciseItemLeft}>
+                    {ex.category ? (
+                      <Text style={styles.exerciseCategory}>
+                        {ex.category.toUpperCase()}
+                      </Text>
+                    ) : null}
+                    <Text style={styles.exerciseItemName}>{ex.name}</Text>
+                    {ex.equipment_type ? (
+                      <Text style={styles.exerciseEquipment}>
+                        {ex.equipment_type}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </>
         )}
-
-        {/* Sets, Reps & Notes */}
-        {selected && (
-          <View style={styles.detailSection}>
-            <View style={styles.selectedBanner}>
-              <View style={styles.selectedBannerLeft}>
-                <Text style={styles.selectedBannerLabel}>SELECTED</Text>
-                <Text style={styles.selectedBannerName}>{selected.name}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setSelected(null)}>
-                <Ionicons name="close-circle-outline" size={20} color="#555" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.sectionLabel}>SETS & REPS</Text>
-            <View style={styles.setsRepsRow}>
-              <View style={styles.setsRepsField}>
-                <Text style={styles.inputLabel}>Sets</Text>
-                <TextInput
-                  style={styles.numInput}
-                  placeholder="3"
-                  placeholderTextColor="#333"
-                  value={sets}
-                  onChangeText={setSets}
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles.setsRepsDivider}>
-                <Text style={styles.dividerText}>×</Text>
-              </View>
-              <View style={styles.setsRepsField}>
-                <Text style={styles.inputLabel}>Reps</Text>
-                <TextInput
-                  style={styles.numInput}
-                  placeholder="10"
-                  placeholderTextColor="#333"
-                  value={reps}
-                  onChangeText={setReps}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-
-            <Text style={styles.sectionLabel}>
-              NOTES <Text style={styles.optional}>(OPTIONAL)</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="e.g. Keep back straight, slow on the eccentric…"
-              placeholderTextColor="#333"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            <TouchableOpacity
-              style={[styles.addBtn, saving && styles.addBtnDisabled]}
-              onPress={handleAdd}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.addBtnText}>
-                {saving ? "Adding…" : `Add ${selected.name}`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </ScrollView>
+
+      {/* Sticky footer — only visible when something is selected */}
+      {selectedCount > 0 && (
+        <View style={styles.footer}>
+          <View style={styles.footerLeft}>
+            <Text style={styles.footerCount}>{selectedCount}</Text>
+            <Text style={styles.footerLabel}>
+              {selectedCount === 1 ? "exercise" : "exercises"} selected
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.addBtn, saving && styles.addBtnDisabled]}
+            onPress={handleAdd}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.addBtnText}>
+              {saving ? "Adding…" : "Add to Day"}
+            </Text>
+            {!saving && (
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Create Exercise Modal ── */}
       <Modal
@@ -375,7 +364,6 @@ export default function AddExerciseScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Name */}
             <Text style={styles.modalSectionLabel}>EXERCISE NAME</Text>
             <TextInput
               style={styles.modalInput}
@@ -386,7 +374,6 @@ export default function AddExerciseScreen() {
               autoFocus
             />
 
-            {/* Category */}
             <Text style={styles.modalSectionLabel}>CATEGORY</Text>
             <View style={styles.chipGrid}>
               {CATEGORIES.map((cat) => (
@@ -413,7 +400,6 @@ export default function AddExerciseScreen() {
               ))}
             </View>
 
-            {/* Equipment */}
             <Text style={styles.modalSectionLabel}>EQUIPMENT TYPE</Text>
             <View style={styles.chipGrid}>
               {EQUIPMENT_TYPES.map((eq) => (
@@ -485,6 +471,7 @@ const styles = StyleSheet.create({
   },
   topBarTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
   scroll: { paddingHorizontal: 20, paddingBottom: 48, paddingTop: 4 },
+  scrollWithFooter: { paddingBottom: 100 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -516,14 +503,24 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   noResultsSub: { color: "#800000", fontSize: 12 },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   sectionLabel: {
     color: "#555",
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    marginBottom: 12,
   },
-  optional: { color: "#333", fontWeight: "400" },
+  clearText: {
+    color: "#800000",
+    fontSize: 10,
+    letterSpacing: 1,
+    fontWeight: "600",
+  },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -553,78 +550,57 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   exerciseEquipment: { color: "#333", fontSize: 11, marginTop: 1 },
-  detailSection: {
-    marginTop: 8,
-    paddingTop: 24,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#333",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
+  },
+  checkboxSelected: {
+    backgroundColor: "#800000",
+    borderColor: "#800000",
+  },
+
+  // Sticky footer
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#0d0d0d",
     borderTopWidth: 1,
     borderTopColor: "#1a1a1a",
-  },
-  selectedBanner: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingBottom: 28,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(128,0,0,0.1)",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "rgba(128,0,0,0.3)",
+    gap: 12,
   },
-  selectedBannerLeft: {},
-  selectedBannerLabel: {
-    color: "#800000",
-    fontSize: 9,
-    letterSpacing: 1.5,
-    marginBottom: 3,
-  },
-  selectedBannerName: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  setsRepsRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    marginBottom: 24,
-  },
-  setsRepsField: { flex: 1 },
-  setsRepsDivider: { paddingBottom: 14, alignItems: "center" },
-  dividerText: { color: "#444", fontSize: 20, fontWeight: "300" },
-  inputLabel: {
-    color: "#888",
-    fontSize: 11,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  numInput: {
-    backgroundColor: "#111",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  footerLeft: { flex: 1 },
+  footerCount: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
-    borderWidth: 1,
-    borderColor: "#1a1a1a",
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 24,
   },
-  input: {
-    backgroundColor: "#111",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: "#fff",
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#1a1a1a",
-    marginBottom: 24,
-  },
-  textArea: { height: 90, paddingTop: 14 },
+  footerLabel: { color: "#555", fontSize: 12 },
   addBtn: {
     backgroundColor: "#800000",
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 8,
   },
   addBtnDisabled: { opacity: 0.5 },
-  addBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 
   // Modal styles
   modalContainer: { flex: 1, backgroundColor: "#0a0a0a" },
