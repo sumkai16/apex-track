@@ -14,7 +14,7 @@ export default function RootLayout() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        router.replace('/')
+        router.replace('/(tabs)/home')  // ← fix this
       } else {
         router.replace('/(auth)/login')
       }

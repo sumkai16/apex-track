@@ -15,7 +15,7 @@ interface RecentSession {
     program_day_id: string
     started_at: string
     status: string
-    program_days: { name: string } | null
+    program_days: { name: string }[] | null
 }
 
 export default function HomeScreen() {
@@ -48,7 +48,7 @@ export default function HomeScreen() {
             .eq('status', 'completed')
             .order('started_at', { ascending: false })
             .limit(3)
-        if (data) setRecentSessions(data as RecentSession[])
+        if (data) setRecentSessions(data as unknown as RecentSession[])
     }
 
     function getGreeting() {
@@ -111,7 +111,7 @@ export default function HomeScreen() {
                         <View key={session.id} style={styles.sessionCard}>
                             <View style={styles.sessionRow}>
                                 <Text style={styles.sessionName}>
-                                    {session.program_days?.name || 'Workout'}
+                                    {session.program_days?.[0]?.name || 'Workout'}
                                 </Text>
                                 <Text style={styles.sessionDate}>{formatDate(session.started_at)}</Text>
                             </View>
