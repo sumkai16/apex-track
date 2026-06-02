@@ -1,14 +1,14 @@
-import { router } from 'expo-router'
-import React, { useEffect, useState } from 'react'
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
-} from 'react-native'
-import { supabase } from '../../lib/supabase'
+    View,
+} from "react-native";
+import { supabase } from "../../lib/supabase";
 
 interface RecentSession {
     id: string
@@ -19,23 +19,25 @@ interface RecentSession {
 }
 
 export default function HomeScreen() {
-    const [displayName, setDisplayName] = useState('')
-    const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
+    const [displayName, setDisplayName] = useState("");
+    const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
 
     useEffect(() => {
-        fetchProfile()
-        fetchRecentSessions()
-    }, [])
+        fetchProfile();
+        fetchRecentSessions();
+    }, []);
 
     async function fetchProfile() {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
         const { data } = await supabase
-            .from('profiles')
-            .select('display_name')
-            .eq('id', user.id)
-            .single()
-        if (data) setDisplayName(data.display_name)
+            .from("profiles")
+            .select("display_name")
+            .eq("id", user.id)
+            .single();
+        if (data) setDisplayName(data.display_name);
     }
 
     async function fetchRecentSessions() {
@@ -52,46 +54,53 @@ export default function HomeScreen() {
     }
 
     function getGreeting() {
-        const hour = new Date().getHours()
-        if (hour < 12) return 'Good morning'
-        if (hour < 17) return 'Good afternoon'
-        return 'Good evening'
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good morning";
+        if (hour < 17) return "Good afternoon";
+        return "Good evening";
     }
 
     function formatDate(dateStr: string) {
-        const date = new Date(dateStr)
-        const now = new Date()
-        const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-        if (diff === 0) return 'Today'
-        if (diff === 1) return 'Yesterday'
-        return `${diff} days ago`
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = Math.floor(
+            (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        if (diff === 0) return "Today";
+        if (diff === 1) return "Yesterday";
+        return `${diff} days ago`;
     }
 
     async function handleLogout() {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut();
     }
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
-            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
+            <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greeting}>{getGreeting()}</Text>
-                        <Text style={styles.name}>{displayName || 'Athlete'} 👊</Text>
+                        <Text style={styles.name}>{displayName || "Athlete"} 👊</Text>
                     </View>
-                    <TouchableOpacity style={styles.settingsButton} onPress={handleLogout}>
+                    <TouchableOpacity
+                        style={styles.settingsButton}
+                        onPress={handleLogout}
+                    >
                         <Text style={styles.settingsIcon}>⚙</Text>
                     </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
                     style={styles.heroCard}
-                    onPress={() => router.push('/(tabs)/log')}
+                    onPress={() => router.push("/(tabs)/log")}
                     activeOpacity={0.85}
                 >
-                    <Text style={styles.heroLabel}>TODAY'S WORKOUT</Text>
+                    <Text style={styles.heroLabel}>TODAYS WORKOUT</Text>
                     <Text style={styles.heroTitle}>Ready to train?</Text>
                     <Text style={styles.heroSub}>Tap to start a session</Text>
                     <View style={styles.startButton}>
@@ -129,53 +138,89 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#050505' },
+    container: { flex: 1, backgroundColor: "#050505" },
     scroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
     header: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: 24,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 24,
     },
-    greeting: { color: '#555', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 },
-    name: { color: '#fff', fontSize: 22, fontWeight: '700' },
+    greeting: {
+        color: "#555",
+        fontSize: 11,
+        letterSpacing: 1,
+        textTransform: "uppercase",
+        marginBottom: 2,
+    },
+    name: { color: "#fff", fontSize: 22, fontWeight: "700" },
     settingsButton: {
-        width: 36, height: 36, backgroundColor: '#111',
-        borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+        width: 36,
+        height: 36,
+        backgroundColor: "#111",
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    settingsIcon: { color: '#800000', fontSize: 16 },
+    settingsIcon: { color: "#800000", fontSize: 16 },
     heroCard: {
-        backgroundColor: '#800000', borderRadius: 16,
-        padding: 20, marginBottom: 24,
+        backgroundColor: "#800000",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 24,
     },
-    heroLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, letterSpacing: 1, marginBottom: 6 },
-    heroTitle: { color: '#fff', fontSize: 20, fontWeight: '700', marginBottom: 4 },
-    heroSub: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 16 },
+    heroLabel: {
+        color: "rgba(255,255,255,0.5)",
+        fontSize: 10,
+        letterSpacing: 1,
+        marginBottom: 6,
+    },
+    heroTitle: {
+        color: "#fff",
+        fontSize: 20,
+        fontWeight: "700",
+        marginBottom: 4,
+    },
+    heroSub: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 16 },
     startButton: {
-        backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10,
-        padding: 14, flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: "rgba(0,0,0,0.3)",
+        borderRadius: 10,
+        padding: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
     },
-    startText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-    startIcon: { color: '#fff', fontSize: 16 },
+    startText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+    startIcon: { color: "#fff", fontSize: 16 },
     sectionTitle: {
-        color: '#555', fontSize: 11, letterSpacing: 1,
-        marginBottom: 12, textTransform: 'uppercase',
+        color: "#555",
+        fontSize: 11,
+        letterSpacing: 1,
+        marginBottom: 12,
+        textTransform: "uppercase",
     },
     emptyCard: {
-        backgroundColor: '#111', borderRadius: 14,
-        padding: 20, alignItems: 'center',
+        backgroundColor: "#111",
+        borderRadius: 14,
+        padding: 20,
+        alignItems: "center",
     },
-    emptyText: { color: '#444', fontSize: 13, textAlign: 'center' },
+    emptyText: { color: "#444", fontSize: 13, textAlign: "center" },
     sessionCard: {
-        backgroundColor: '#111', borderRadius: 14,
-        padding: 16, marginBottom: 10,
+        backgroundColor: "#111",
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 10,
     },
     sessionRow: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: 8,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 8,
     },
-    sessionName: { color: '#fff', fontSize: 14, fontWeight: '600' },
-    sessionDate: { color: '#555', fontSize: 11 },
-    sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sessionCheck: { color: '#800000', fontSize: 11 },
-    sessionInfo: { color: '#555', fontSize: 12 },
-})
+    sessionName: { color: "#fff", fontSize: 14, fontWeight: "600" },
+    sessionDate: { color: "#555", fontSize: 11 },
+    sessionMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
+    sessionCheck: { color: "#800000", fontSize: 11 },
+    sessionInfo: { color: "#555", fontSize: 12 },
+});
