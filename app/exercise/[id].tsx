@@ -31,6 +31,7 @@ interface SessionPoint {
     maxWeight: number
     avgReps: number
     setCount: number
+    rawDate: string
 }
 
 export default function ExerciseDetailScreen() {
@@ -57,23 +58,47 @@ export default function ExerciseDetailScreen() {
 
         if (exData) setExerciseName(exData.name)
 
+        // Get completed sessions for this user
+        const { data: userSessions } = await supabase
+            .from('sessions')
+            .select('id, started_at')
+            .eq('user_id', user.id)
+            .eq('status', 'completed')
+            .order('started_at', { ascending: true })
+
+        if (!userSessions || userSessions.length === 0) {
+            setLoading(false)
+            return
+        }
+
+        const sessionIds = userSessions.map(s => s.id)
+        const sessionDateMap = new Map(userSessions.map(s => [s.id, s.started_at]))
+
+        // Get program_exercise IDs for this exercise
+        const { data: peData } = await supabase
+            .from('program_exercises')
+            .select('id')
+            .eq('exercise_id', id)
+
+        if (!peData || peData.length === 0) {
+            setLoading(false)
+            return
+        }
+
+        const peIds = peData.map(pe => pe.id)
+
+        // Get sets matching both
         const { data } = await supabase
             .from('session_sets')
-            .select(`
-                weight_used,
-                reps_done,
-                program_exercises!inner ( exercise_id ),
-                sessions!inner ( id, started_at, user_id, status )
-            `)
-            .eq('program_exercises.exercise_id', id)
-            .eq('sessions.user_id', user.id)
-            .eq('sessions.status', 'completed')
-            .order('sessions.started_at', { ascending: true })
+            .select('session_id, weight_used, reps_done')
+            .in('session_id', sessionIds)
+            .in('program_exercise_id', peIds)
+            .order('session_id')
 
         if (data) {
             const sets: SetData[] = data.map((row: any) => ({
-                session_id: row.sessions.id,
-                session_date: row.sessions.started_at,
+                session_id: row.session_id,
+                session_date: sessionDateMap.get(row.session_id) || '',
                 weight_used: row.weight_used || 0,
                 reps_done: row.reps_done || 0,
             }))
@@ -99,11 +124,12 @@ export default function ExerciseDetailScreen() {
 
         return Array.from(sessionMap.entries()).map(([, sets]) => {
             const date = new Date(sets[0].session_date)
-            const label = `${date.getDate()}/${date.getMonth() + 1}`
+            const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             const maxWeight = Math.max(...sets.map(s => s.weight_used))
             const avgReps = Math.round(sets.reduce((a, s) => a + s.reps_done, 0) / sets.length)
-            return { date: label, maxWeight, avgReps, setCount: sets.length }
+            return { date: label, maxWeight, avgReps, setCount: sets.length, rawDate: sets[0].session_date }
         })
+            .sort((a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime())
     }
 
     function getStats() {
@@ -128,7 +154,7 @@ export default function ExerciseDetailScreen() {
     const chartWidth = Dimensions.get('window').width - 64
     const chartHeight = 140
     const maxW = Math.max(...points.map(p => p.maxWeight), 1)
-    const minW = Math.min(...points.map(p => p.maxWeight), 0)
+    const minW = Math.max(0, Math.min(...points.map(p => p.maxWeight)) - 10)
     const range = maxW - minW || 1
 
     function toX(i: number) {

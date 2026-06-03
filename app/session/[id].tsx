@@ -143,7 +143,7 @@ export default function SessionScreen() {
         )
 
         setExercises(enriched)
-
+        console.log(enriched[0]);
         const initialSets: Record<string, LoggedSet[]> = {}
         enriched.forEach(pe => {
             initialSets[pe.id] = Array.from({ length: pe.target_sets }, (_, i) => ({
@@ -230,26 +230,74 @@ export default function SessionScreen() {
         })
     }
     async function saveAllSets() {
-        const allSets: object[] = []
+        // Step 1: collect all sets to save
+        const allSets: {
+            session_id: string;
+            program_exercise_id: string;
+            exercise_id: string;
+            set_number: number;
+            weight_used: number;
+            reps_done: number;
+            weight_unit: string;
+            is_pr: boolean;
+        }[] = [];
+
         exercises.forEach(pe => {
-            const peSets = sets[pe.id] || []
+            const peSets = sets[pe.id] || [];
             peSets.forEach(set => {
-                if (set.done) {
+                if (set.done || (set.weight_used > 0 && set.reps_done > 0)) {
                     allSets.push({
                         session_id: id,
                         program_exercise_id: pe.id,
+                        exercise_id: pe.exercise.id,
                         set_number: set.set_number,
                         weight_used: set.weight_used,
                         reps_done: set.reps_done,
                         weight_unit: 'kg',
                         is_pr: false,
-                    })
+                    });
                 }
-            })
-        })
-        if (allSets.length > 0) {
-            await supabase.from('session_sets').insert(allSets)
-        }
+            });
+        });
+
+        if (allSets.length === 0) return;
+
+        // Step 2: get unique exercise IDs from this session
+        const exerciseIds = [...new Set(allSets.map(s => s.exercise_id))];
+
+        // Step 3: fetch historical max weight per exercise (completed sessions only, not this one)
+        const { data: historicalSets } = await supabase
+            .from('session_sets')
+            .select('exercise_id, weight_used')
+            .in('exercise_id', exerciseIds)
+            .neq('session_id', id);
+
+        // Step 4: build a lookup map — exercise_id → historical max
+        const historicalMax: Record<string, number> = {};
+        (historicalSets ?? []).forEach(s => {
+            if (!historicalMax[s.exercise_id] || s.weight_used > historicalMax[s.exercise_id]) {
+                historicalMax[s.exercise_id] = s.weight_used;
+            }
+        });
+
+        // Step 5: determine PRs — track session-level max too so only the
+        // heaviest set in this session gets flagged, not every set that beats history
+        const sessionMax: Record<string, number> = {};
+        allSets.forEach(set => {
+            if (!sessionMax[set.exercise_id] || set.weight_used > sessionMax[set.exercise_id]) {
+                sessionMax[set.exercise_id] = set.weight_used;
+            }
+        });
+
+        allSets.forEach(set => {
+            const prevMax = historicalMax[set.exercise_id] ?? -1;
+            const isSessionMax = set.weight_used === sessionMax[set.exercise_id];
+            const beatsHistory = set.weight_used > prevMax;
+            set.is_pr = isSessionMax && beatsHistory;
+        });
+
+        // Step 6: save
+        await supabase.from('session_sets').insert(allSets);
     }
 
     async function finishSession() {

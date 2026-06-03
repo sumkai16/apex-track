@@ -38,18 +38,32 @@ export default function ProgressScreen() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
+        // First get all completed session IDs for this user
+        const { data: userSessions } = await supabase
+            .from('sessions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'completed')
+
+        if (!userSessions || userSessions.length === 0) {
+            setLoading(false)
+            return
+        }
+
+        const sessionIds = userSessions.map(s => s.id)
+
+        // Get all sets from those sessions
         const { data } = await supabase
             .from('session_sets')
             .select(`
-                weight_used,
-                program_exercises!inner (
-                    exercise_id,
-                    exercises!inner ( id, name )
-                ),
-                sessions!inner ( user_id, status )
-            `)
-            .eq('sessions.user_id', user.id)
-            .eq('sessions.status', 'completed')
+            weight_used,
+            session_id,
+            program_exercises!inner (
+                exercise_id,
+                exercises!inner ( id, name )
+            )
+        `)
+            .in('session_id', sessionIds)
 
         if (!data) {
             setLoading(false)
@@ -60,19 +74,17 @@ export default function ProgressScreen() {
         const sessionsByExercise = new Map<string, Set<string>>()
 
         data.forEach((row: any) => {
-            const pe = row.program_exercises
-            const ex = pe?.exercises
+            const ex = row.program_exercises?.exercises
             if (!ex) return
 
             const exId = ex.id
-            const exName = ex.name
             const weight = row.weight_used || 0
-            const sessionId = row.sessions?.id
+            const sessionId = row.session_id
 
             if (!map.has(exId)) {
                 map.set(exId, {
                     exercise_id: exId,
-                    exercise_name: exName,
+                    exercise_name: ex.name,
                     session_count: 0,
                     pr_weight: 0,
                 })
@@ -97,7 +109,6 @@ export default function ProgressScreen() {
         setFiltered(result)
         setLoading(false)
     }
-
     function handleSearch(text: string) {
         setSearch(text)
         if (!text.trim()) {
