@@ -6,7 +6,7 @@ import {
     TouchableOpacity, View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
-
+import { registeringFlag } from '../_layout'
 export default function RegisterScreen() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -22,20 +22,28 @@ export default function RegisterScreen() {
             Alert.alert('Error', 'Password must be at least 6 characters')
             return
         }
+
+        registeringFlag.value = true
         setLoading(true)
+
         const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) {
+            registeringFlag.value = false
             setLoading(false)
             Alert.alert('Registration failed', error.message)
             return
         }
+
         if (data.user) {
             await supabase.from('profiles').insert({
                 id: data.user.id,
                 display_name: displayName,
             })
+            await supabase.auth.signOut()
         }
+
         setLoading(false)
+        registeringFlag.value = false
         Alert.alert('Success', 'Account created! You can now log in.', [
             { text: 'OK', onPress: () => router.replace('/(auth)/login') }
         ])

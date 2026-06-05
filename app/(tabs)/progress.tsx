@@ -159,10 +159,17 @@ export default function ProgressScreen() {
 
                 {filtered.length === 0 ? (
                     <View style={styles.empty}>
-                        <Text style={styles.emptyTitle}>No exercises found</Text>
-                        <Text style={styles.emptyText}>
-                            Complete a session to see your progress here.
-                        </Text>
+                        {search.trim().length > 0 ? (
+                            <>
+                                <Text style={styles.emptyTitle}>No results</Text>
+                                <Text style={styles.emptyText}>No exercises match "{search}".</Text>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.emptyTitle}>No progress yet</Text>
+                                <Text style={styles.emptyText}>Complete a session to see your lifts here.</Text>
+                            </>
+                        )}
                     </View>
                 ) : (
                     filtered.map(ex => (

@@ -32,6 +32,7 @@ export default function HomeScreen() {
   const [completedDates, setCompletedDates] = useState<string[]>([]);
   const [currentMonthName, setCurrentMonthName] = useState("");
   const [sessionsThisMonthCount, setSessionsThisMonthCount] = useState(0);
+  const [hasActiveProgram, setHasActiveProgram] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -50,6 +51,14 @@ export default function HomeScreen() {
       .eq("id", user.id)
       .single();
     if (data) setDisplayName(data.display_name);
+    const { data: activeProgram } = await supabase
+      .from('programs')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    setHasActiveProgram(!!activeProgram);
   }
 
   async function fetchRecentSessions() {
@@ -182,24 +191,31 @@ export default function HomeScreen() {
         </View>
 
         {/* Premium Hero Card */}
-        <TouchableOpacity
-          style={styles.heroCard}
-          onPress={() => router.push("/(tabs)/log")}
-          activeOpacity={0.9}
-        >
+        <View style={styles.heroCard}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroLabel}>TODAYS WORKOUT</Text>
-            <Text style={styles.heroTitle}>Ready to train?</Text>
-            <Text style={styles.heroSub}>Tap to start your daily session</Text>
+            <Text style={styles.heroLabel}>TODAY'S WORKOUT</Text>
+            <Text style={styles.heroTitle}>
+              {hasActiveProgram ? 'Ready to train?' : 'No program set'}
+            </Text>
+            <Text style={styles.heroSub}>
+              {hasActiveProgram
+                ? 'Tap to start your daily session'
+                : 'Set up a program to start tracking'}
+            </Text>
           </View>
-
-          <View style={styles.startButton}>
-            <Text style={styles.startText}>Start Session</Text>
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => router.push(hasActiveProgram ? '/(tabs)/log' : '/(tabs)/programs')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.startText}>
+              {hasActiveProgram ? 'Start Session' : 'Set up Program'}
+            </Text>
             <View style={styles.startIconCircle}>
               <Text style={styles.startIcon}>▶</Text>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {/* Grid Month Calendar Section */}
         <Text style={styles.sectionTitle}>THIS MONTH - {currentMonthName}</Text>
