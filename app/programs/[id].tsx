@@ -33,6 +33,7 @@ interface ProgramDay {
   day_order: number;
   is_rest_day: boolean;
   program_exercises: ProgramExercise[];
+
 }
 
 interface Program {
@@ -78,7 +79,7 @@ export default function ProgramDetailScreen() {
       .eq("program_id", id)
       .order("day_order", { ascending: true });
 
-    if (daysData) setDays(daysData as ProgramDay[]);
+    if (daysData) setDays(daysData as unknown as ProgramDay[]);
     setLoading(false);
   }
 

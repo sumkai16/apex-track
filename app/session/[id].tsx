@@ -144,7 +144,7 @@ export default function SessionScreen() {
         )
 
         setExercises(enriched)
-        console.log(enriched[0]);
+
         const initialSets: Record<string, LoggedSet[]> = {}
         enriched.forEach(pe => {
             initialSets[pe.id] = Array.from({ length: pe.target_sets }, (_, i) => ({
@@ -303,6 +303,20 @@ export default function SessionScreen() {
     }
 
     async function finishSession() {
+        // Check if any sets have been logged
+        const hasLoggedSets = Object.values(sets).some(peSets =>
+            peSets.some(set => set.done || (set.weight_used > 0 && set.reps_done > 0))
+        );
+
+        if (!hasLoggedSets) {
+            Alert.alert(
+                'No sets logged',
+                'You haven\'t logged any sets yet. Log at least one set before finishing.',
+                [{ text: 'OK' }]
+            )
+            return
+        }
+
         Alert.alert(
             'Finish session?',
             'This will save all logged sets and mark the session as complete.',

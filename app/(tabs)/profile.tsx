@@ -261,48 +261,56 @@ export default function ProfileScreen() {
     if (deleteConfirmText !== "DELETE") return;
     setDeletingAccount(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Call Edge Function FIRST before deleting any data
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        "https://vaqivrymjwlnlrxsducb.supabase.co/functions/v1/delete-account",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (!response.ok) {
+        const body = await response.text();
+        console.log("Edge function error:", body);
+        throw new Error("Failed to delete auth account");
+      }
+
+      // Then clean up table data
       const { error: setsError } = await supabase
         .from("session_sets")
         .delete()
         .in(
           "session_id",
-          (
-            await supabase.from("sessions").select("id").eq("user_id", user.id)
-          ).data?.map((s) => s.id) ?? [],
+          (await supabase.from("sessions").select("id").eq("user_id", user.id))
+            .data?.map((s) => s.id) ?? [],
         );
       if (setsError) throw setsError;
       await supabase.from("sessions").delete().eq("user_id", user.id);
       const programIds =
-        (
-          await supabase.from("programs").select("id").eq("user_id", user.id)
-        ).data?.map((p) => p.id) ?? [];
+        (await supabase.from("programs").select("id").eq("user_id", user.id))
+          .data?.map((p) => p.id) ?? [];
       if (programIds.length > 0) {
         const dayIds =
-          (
-            await supabase
-              .from("program_days")
-              .select("id")
-              .in("program_id", programIds)
-          ).data?.map((d) => d.id) ?? [];
+          (await supabase.from("program_days").select("id").in("program_id", programIds))
+            .data?.map((d) => d.id) ?? [];
         if (dayIds.length > 0)
-          await supabase
-            .from("program_exercises")
-            .delete()
-            .in("program_day_id", dayIds);
-        await supabase
-          .from("program_days")
-          .delete()
-          .in("program_id", programIds);
+          await supabase.from("program_exercises").delete().in("program_day_id", dayIds);
+        await supabase.from("program_days").delete().in("program_id", programIds);
       }
       await supabase.from("programs").delete().eq("user_id", user.id);
       await supabase.from("profiles").delete().eq("id", user.id);
+
       await supabase.auth.signOut();
       router.replace("/(auth)/login");
     } catch (err) {
+      console.log("Delete account error:", err);
       Alert.alert("Error", "Could not delete account. Please try again.");
     } finally {
       setDeletingAccount(false);

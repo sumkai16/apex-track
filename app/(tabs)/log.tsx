@@ -106,6 +106,16 @@ export default function LogScreen() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user || !program) return
 
+        // Block empty days
+        if (day.exercise_count === 0) {
+            Alert.alert(
+                'No exercises',
+                'This day has no exercises. Add some in Programs before starting a session.',
+                [{ text: 'OK' }]
+            )
+            return
+        }
+
         const { data: existing } = await supabase
             .from('sessions')
             .select('id')
