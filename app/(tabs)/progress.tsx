@@ -12,6 +12,7 @@ import {
     View,
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
+import { useWeightUnit } from '../../lib/WeightUnitContext'
 
 interface ExerciseSummary {
     exercise_id: string
@@ -20,13 +21,12 @@ interface ExerciseSummary {
     pr_weight: number
 }
 
-
 export default function ProgressScreen() {
     const [exercises, setExercises] = useState<ExerciseSummary[]>([])
     const [filtered, setFiltered] = useState<ExerciseSummary[]>([])
     const [search, setSearch] = useState('')
     const [loading, setLoading] = useState(true)
-
+    const { formatWeight } = useWeightUnit()
     useFocusEffect(
         useCallback(() => {
             fetchExercises()
@@ -183,7 +183,7 @@ export default function ProgressScreen() {
                                 <Text style={styles.exName}>{ex.exercise_name}</Text>
                                 {ex.pr_weight > 0 && (
                                     <View style={styles.prBadge}>
-                                        <Text style={styles.prText}>PR {ex.pr_weight}kg</Text>
+                                        <Text style={styles.prText}>PR {formatWeight(ex.pr_weight)}</Text>
                                     </View>
                                 )}
                             </View>

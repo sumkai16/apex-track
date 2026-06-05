@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
+import { useWeightUnit } from '../../lib/WeightUnitContext';
 type WeightUnit = "kg" | "lbs";
 type HeightUnit = "cm" | "ft";
 
@@ -39,7 +39,7 @@ interface Profile {
 
 export default function ProfileScreen() {
   const router = useRouter();
-
+  const { setUnit } = useWeightUnit()
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -116,6 +116,8 @@ export default function ProfileScreen() {
           prev ? { ...prev, weight_unit: previous! } : prev,
         );
         Alert.alert("Error", "Could not update weight unit.");
+      } else {
+        setUnit(unit) // Update global context
       }
     } catch {
       setProfile((prev) => (prev ? { ...prev, weight_unit: previous! } : prev));
@@ -225,15 +227,15 @@ export default function ProfileScreen() {
     setProfile((prev) =>
       prev
         ? {
-            ...prev,
-            age: editAge ? parseInt(editAge) : null,
-            height_cm: heightToStore,
-            weight_kg: weightToStore,
-            gender: editGender || null,
-            fitness_goal: editGoal || null,
-            weight_unit: editWeightUnit,
-            height_unit: editHeightUnit,
-          }
+          ...prev,
+          age: editAge ? parseInt(editAge) : null,
+          height_cm: heightToStore,
+          weight_kg: weightToStore,
+          gender: editGender || null,
+          fitness_goal: editGoal || null,
+          weight_unit: editWeightUnit,
+          height_unit: editHeightUnit,
+        }
         : prev,
     );
 

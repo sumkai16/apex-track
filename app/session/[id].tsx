@@ -14,7 +14,7 @@ import {
     View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
-
+import { useWeightUnit } from '../../lib/WeightUnitContext'
 interface Exercise {
     id: string
     name: string
@@ -47,6 +47,7 @@ export default function SessionScreen() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const sidebarAnim = useRef(new Animated.Value(0)).current
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const { unit, toDisplay, toKg, formatWeight } = useWeightUnit()
 
     useEffect(() => {
         fetchSessionData()
@@ -238,8 +239,9 @@ export default function SessionScreen() {
             set_number: number;
             weight_used: number;
             reps_done: number;
-            weight_unit: string;
+            weight_unit: 'kg';
             is_pr: boolean;
+
         }[] = [];
 
         exercises.forEach(pe => {
@@ -398,7 +400,7 @@ export default function SessionScreen() {
                     {currentExercise?.previousSets?.length > 0 && (
                         <Text style={styles.exPrev}>
                             Last: {currentExercise.previousSets.map(s =>
-                                `${s.weight_used}kg × ${s.reps_done}`).join(', ')}
+                                `${toDisplay(s.weight_used)}${unit} × ${s.reps_done}`).join(', ')}
                         </Text>
                     )}
                 </View>
@@ -406,7 +408,7 @@ export default function SessionScreen() {
                 <View style={styles.exCard}>
                     <View style={styles.setHeader}>
                         <Text style={[styles.setCol, { flex: 0.5 }]}>SET</Text>
-                        <Text style={styles.setCol}>WEIGHT (KG)</Text>
+                        <Text style={styles.setCol}>WEIGHT ({unit.toUpperCase()})</Text>
                         <Text style={styles.setCol}>REPS</Text>
                         <Text style={[styles.setCol, { flex: 0.5 }]}></Text>
                     </View>
@@ -420,8 +422,8 @@ export default function SessionScreen() {
                                 </Text>
                                 <TextInput
                                     style={[styles.setInput, isCurrentSet && styles.setInputActive]}
-                                    value={set.weight_used > 0 ? String(set.weight_used) : ''}
-                                    onChangeText={v => updateSet(currentExercise.id, i, 'weight_used', v)}
+                                    value={set.weight_used > 0 ? String(toDisplay(set.weight_used)) : ''}
+                                    onChangeText={v => updateSet(currentExercise.id, i, 'weight_used', String(toKg(parseFloat(v) || 0)))}
                                     keyboardType="numeric"
                                     placeholder="0"
                                     placeholderTextColor="#444"

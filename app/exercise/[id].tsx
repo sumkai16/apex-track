@@ -12,13 +12,13 @@ import {
 } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 import { supabase } from '../../lib/supabase'
+import { useWeightUnit } from '../../lib/WeightUnitContext'
 const RANGES = [
     { label: '1M', months: 1 },
     { label: '3M', months: 3 },
     { label: '6M', months: 6 },
     { label: 'All', months: 0 },
 ]
-
 interface SetData {
     session_id: string
     session_date: string
@@ -40,7 +40,7 @@ export default function ExerciseDetailScreen() {
     const [allSets, setAllSets] = useState<SetData[]>([])
     const [selectedRange, setSelectedRange] = useState(1)
     const [loading, setLoading] = useState(true)
-
+    const { formatWeight, toDisplay, unit } = useWeightUnit()
     useEffect(() => {
         fetchData()
     }, [])
@@ -189,10 +189,10 @@ export default function ExerciseDetailScreen() {
 
                 <View style={styles.statsRow}>
                     {[
-                        { label: 'PR', value: `${stats.pr}kg` },
+                        { label: 'PR', value: formatWeight(stats.pr) },
                         { label: 'Sessions', value: stats.sessions },
                         { label: 'Avg reps', value: stats.avgReps },
-                        { label: 'Avg weight', value: `${stats.avgWeight}kg` },
+                        { label: 'Avg weight', value: formatWeight(stats.avgWeight) },
                     ].map(s => (
                         <View key={s.label} style={styles.statCard}>
                             <Text style={styles.statLabel}>{s.label}</Text>
@@ -252,9 +252,9 @@ export default function ExerciseDetailScreen() {
                             </View>
 
                             <View style={styles.yLabels}>
-                                <Text style={styles.yLabel}>{maxW}kg</Text>
-                                <Text style={styles.yLabel}>{Math.round((maxW + minW) / 2)}kg</Text>
-                                <Text style={styles.yLabel}>{minW}kg</Text>
+                                <Text style={styles.yLabel}>{toDisplay(maxW)}{unit}</Text>
+                                <Text style={styles.yLabel}>{Math.round(toDisplay((maxW + minW) / 2))}{unit}</Text>
+                                <Text style={styles.yLabel}>{toDisplay(minW)}{unit}</Text>
                             </View>
                         </>
                     )}
@@ -265,7 +265,7 @@ export default function ExerciseDetailScreen() {
                     <View key={i} style={styles.historyRow}>
                         <Text style={styles.historyDate}>{p.date}</Text>
                         <View style={styles.historyRight}>
-                            <Text style={styles.historyWeight}>{p.maxWeight}kg</Text>
+                            <Text style={styles.historyWeight}>{formatWeight(p.maxWeight)}</Text>
                             <Text style={styles.historySets}>{p.setCount} sets · {p.avgReps} avg reps</Text>
                         </View>
                     </View>
