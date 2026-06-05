@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -46,6 +47,96 @@ const EQUIPMENT_TYPES = [
   "Other",
 ];
 
+// Production-ready predefined standard exercise matrix
+const SEED_EXERCISES = [
+  { name: "Barbell Bench Press", category: "Chest", equipment_type: "Barbell" },
+  {
+    name: "Incline Dumbbell Press",
+    category: "Chest",
+    equipment_type: "Dumbbell",
+  },
+  { name: "Cable Crossover", category: "Chest", equipment_type: "Cable" },
+  { name: "Chest Fly", category: "Chest", equipment_type: "Machine" },
+  { name: "Push-Up", category: "Chest", equipment_type: "Bodyweight" },
+
+  {
+    name: "Conventional Deadlift",
+    category: "Back",
+    equipment_type: "Barbell",
+  },
+  { name: "Pull-Up", category: "Back", equipment_type: "Bodyweight" },
+  { name: "Lat Pulldown", category: "Back", equipment_type: "Machine" },
+  {
+    name: "Bent-Over Barbell Row",
+    category: "Back",
+    equipment_type: "Barbell",
+  },
+  {
+    name: "One-Arm Dumbbell Row",
+    category: "Back",
+    equipment_type: "Dumbbell",
+  },
+
+  { name: "Barbell Back Squat", category: "Legs", equipment_type: "Barbell" },
+  { name: "Romanian Deadlift", category: "Legs", equipment_type: "Barbell" },
+  { name: "Leg Press", category: "Legs", equipment_type: "Machine" },
+  {
+    name: "Bulgarian Split Squat",
+    category: "Legs",
+    equipment_type: "Dumbbell",
+  },
+  {
+    name: "Kettlebell Goblet Squat",
+    category: "Legs",
+    equipment_type: "Kettlebell",
+  },
+  { name: "Lying Leg Curl", category: "Legs", equipment_type: "Machine" },
+
+  {
+    name: "Overhead Barbell Press",
+    category: "Shoulders",
+    equipment_type: "Barbell",
+  },
+  {
+    name: "Dumbbell Lateral Raise",
+    category: "Shoulders",
+    equipment_type: "Dumbbell",
+  },
+  { name: "Cable Face Pull", category: "Shoulders", equipment_type: "Cable" },
+  {
+    name: "Dumbbell Shoulder Press",
+    category: "Shoulders",
+    equipment_type: "Dumbbell",
+  },
+
+  { name: "Dumbbell Bicep Curl", category: "Arms", equipment_type: "Dumbbell" },
+  { name: "Tricep Rope Pushdown", category: "Arms", equipment_type: "Cable" },
+  {
+    name: "Dumbbell Hammer Curl",
+    category: "Arms",
+    equipment_type: "Dumbbell",
+  },
+  {
+    name: "Incline Dumbbell Curl",
+    category: "Arms",
+    equipment_type: "Dumbbell",
+  },
+  {
+    name: "Barbell Skull Crusher",
+    category: "Arms",
+    equipment_type: "Barbell",
+  },
+
+  { name: "Hanging Leg Raise", category: "Core", equipment_type: "Bodyweight" },
+  { name: "Plank", category: "Core", equipment_type: "Bodyweight" },
+  { name: "Ab Wheel Rollout", category: "Core", equipment_type: "Other" },
+  { name: "Cable Crunch", category: "Core", equipment_type: "Cable" },
+
+  { name: "Treadmill Run", category: "Cardio", equipment_type: "Machine" },
+  { name: "Rowing Machine", category: "Cardio", equipment_type: "Machine" },
+  { name: "Burpee", category: "Full Body", equipment_type: "Bodyweight" },
+];
+
 export default function AddExerciseScreen() {
   const { id: programId, dayId } = useLocalSearchParams<{
     id: string;
@@ -57,6 +148,8 @@ export default function AddExerciseScreen() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
 
   // Create exercise modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -82,14 +175,74 @@ export default function AddExerciseScreen() {
   }, [search, exercises]);
 
   async function fetchExercises() {
-    const { data } = await supabase
-      .from("exercises")
-      .select("id, name, category, equipment_type")
-      .order("name", { ascending: true });
-    if (data) {
-      setExercises(data);
-      setFiltered(data);
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from("exercises")
+        .select("id, name, category, equipment_type")
+        .order("name", { ascending: true });
+      if (data) {
+        setExercises(data);
+        setFiltered(data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  // Seeding engine execution workflow
+  async function handleSeedLibrary() {
+    setSeeding(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Authentication Required", "Please log back into the app.");
+      setSeeding(false);
+      return;
+    }
+
+    // Isolate exercises already present in your database by matching lowercase titles
+    const currentNames = new Set(exercises.map((e) => e.name.toLowerCase()));
+    const missingExercises = SEED_EXERCISES.filter(
+      (item) => !currentNames.has(item.name.toLowerCase()),
+    );
+
+    if (missingExercises.length === 0) {
+      Alert.alert(
+        "Library Complete",
+        "Your database already has all core foundation movements populated.",
+      );
+      setSeeding(false);
+      return;
+    }
+
+    // Attach configuration details to the batch transaction mapping payload
+    const payload = missingExercises.map((item) => ({
+      ...item,
+      is_system: true,
+      created_by: user.id,
+    }));
+
+    const { error } = await supabase.from("exercises").insert(payload);
+
+    if (error) {
+      Alert.alert(
+        "Seeding Failed",
+        error.message || "Could not insert template library data.",
+      );
+      setSeeding(false);
+      return;
+    }
+
+    Alert.alert(
+      "Success 🎉",
+      `Successfully synced and appended ${missingExercises.length} missing foundation exercises!`,
+      [{ text: "Awesome", onPress: () => fetchExercises() }],
+    );
+    setSeeding(false);
   }
 
   function toggleExercise(ex: Exercise) {
@@ -138,7 +291,6 @@ export default function AddExerciseScreen() {
     setExercises((prev) =>
       [...prev, newEx].sort((a, b) => a.name.localeCompare(b.name)),
     );
-    // Auto-select the newly created exercise
     setSelectedIds((prev) => new Set(prev).add(newEx.id));
     setCreating(false);
     setShowCreateModal(false);
@@ -154,7 +306,6 @@ export default function AddExerciseScreen() {
     }
     setSaving(true);
 
-    // Get current max order_index for this day
     const { data: existing } = await supabase
       .from("program_exercises")
       .select("order_index")
@@ -165,7 +316,6 @@ export default function AddExerciseScreen() {
     let nextIndex =
       existing && existing.length > 0 ? existing[0].order_index + 1 : 0;
 
-    // Build batch insert payload
     const payload = Array.from(selectedIds).map((exerciseId, i) => ({
       program_day_id: dayId,
       exercise_id: exerciseId,
@@ -197,13 +347,33 @@ export default function AddExerciseScreen() {
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle}>Add Exercise</Text>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={() => setShowCreateModal(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-        </TouchableOpacity>
+
+        {/* Actions row container */}
+        <View style={styles.topBarActions}>
+          <TouchableOpacity
+            style={styles.seedIconBtn}
+            onPress={handleSeedLibrary}
+            disabled={seeding}
+            activeOpacity={0.7}
+          >
+            {seeding ? (
+              <ActivityIndicator size="small" color="#800000" />
+            ) : (
+              <Ionicons
+                name="cloud-download-outline"
+                size={20}
+                color="#800000"
+              />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={() => setShowCreateModal(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -236,8 +406,45 @@ export default function AddExerciseScreen() {
           )}
         </View>
 
-        {/* Create new hint */}
-        {search.length > 0 && filtered.length === 0 && (
+        {/* Loading Indicator */}
+        {loading && (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="small" color="#800000" />
+          </View>
+        )}
+
+        {/* Empty State Seed Engine Prompt Callout Banner */}
+        {!loading && exercises.length === 0 && (
+          <View style={styles.seedContainerCard}>
+            <Ionicons
+              name="flash"
+              size={26}
+              color="#800000"
+              style={{ marginBottom: 10 }}
+            />
+            <Text style={styles.seedTitleText}>Exercise Library is Empty</Text>
+            <Text style={styles.seedDescriptionText}>
+              Populate your workspace with a complete collection of 32
+              foundation exercises across all splits to run the training
+              generator.
+            </Text>
+            <TouchableOpacity
+              style={[styles.seedActionBtn, seeding && styles.addBtnDisabled]}
+              onPress={handleSeedLibrary}
+              disabled={seeding}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.seedActionBtnText}>
+                {seeding
+                  ? "Populating Database..."
+                  : "Seed Core Exercise Library"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Create new hint from custom search input */}
+        {search.length > 0 && filtered.length === 0 && !loading && (
           <TouchableOpacity
             style={styles.noResultsCard}
             onPress={() => {
@@ -258,8 +465,8 @@ export default function AddExerciseScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Exercise list */}
-        {filtered.length > 0 && (
+        {/* Exercise list rendering */}
+        {filtered.length > 0 && !loading && (
           <>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>SELECT EXERCISES</Text>
@@ -312,7 +519,7 @@ export default function AddExerciseScreen() {
         )}
       </ScrollView>
 
-      {/* Sticky footer — only visible when something is selected */}
+      {/* Sticky footer UI elements */}
       {selectedCount > 0 && (
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
@@ -337,7 +544,7 @@ export default function AddExerciseScreen() {
         </View>
       )}
 
-      {/* ── Create Exercise Modal ── */}
+      {/* ── Create Custom Single Exercise Modal ── */}
       <Modal
         visible={showCreateModal}
         animationType="slide"
@@ -461,6 +668,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  topBarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  seedIconBtn: {
+    width: 36,
+    height: 36,
+    backgroundColor: "#111",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#1a1a1a",
+  },
   createBtn: {
     width: 36,
     height: 36,
@@ -484,6 +706,45 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: "#fff", fontSize: 14, paddingVertical: 13 },
+  centerContainer: { marginVertical: 30, alignItems: "center" },
+
+  // Seed Premium Crimson Feature Styles
+  seedContainerCard: {
+    backgroundColor: "rgba(128,0,0,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(128,0,0,0.15)",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    marginVertical: 12,
+  },
+  seedTitleText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  seedDescriptionText: {
+    color: "#777",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  seedActionBtn: {
+    backgroundColor: "#800000",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    width: "100%",
+    alignItems: "center",
+  },
+  seedActionBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
   noResultsCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -565,7 +826,6 @@ const styles = StyleSheet.create({
     borderColor: "#800000",
   },
 
-  // Sticky footer
   footer: {
     position: "absolute",
     bottom: 0,
@@ -602,7 +862,6 @@ const styles = StyleSheet.create({
   addBtnDisabled: { opacity: 0.5 },
   addBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 
-  // Modal styles
   modalContainer: { flex: 1, backgroundColor: "#0a0a0a" },
   modalTopBar: {
     flexDirection: "row",
