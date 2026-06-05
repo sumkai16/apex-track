@@ -156,8 +156,16 @@ export default function LogScreen() {
     if (!program) {
         return (
             <View style={styles.centered}>
+                <Text style={styles.emptyIcon}>🏋️</Text>
                 <Text style={styles.emptyTitle}>No active program</Text>
-                <Text style={styles.emptyText}>Go to Programs and set one as active.</Text>
+                <Text style={styles.emptyText}>Set a program as active to start logging sessions.</Text>
+                <TouchableOpacity
+                    style={styles.emptyBtn}
+                    onPress={() => router.push('/(tabs)/programs')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.emptyBtnText}>Go to Programs</Text>
+                </TouchableOpacity>
             </View>
         )
     }
@@ -227,4 +235,13 @@ const styles = StyleSheet.create({
     loadingText: { color: '#555', fontSize: 14 },
     emptyTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 8 },
     emptyText: { color: '#555', fontSize: 13, textAlign: 'center' },
+    emptyIcon: { fontSize: 40, marginBottom: 16 },
+    emptyBtn: {
+        marginTop: 20,
+        backgroundColor: '#800000',
+        paddingVertical: 13,
+        paddingHorizontal: 32,
+        borderRadius: 10,
+    },
+    emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 })
