@@ -1,4 +1,4 @@
-import { LinearGradient } from "expo-linear-gradient"; // Added for premium dark-crimson styling
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -32,7 +32,6 @@ export default function HomeScreen() {
   const [completedDates, setCompletedDates] = useState<string[]>([]);
   const [currentMonthName, setCurrentMonthName] = useState("");
   const [sessionsThisMonthCount, setSessionsThisMonthCount] = useState(0);
-  const [hasActiveProgram, setHasActiveProgram] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -51,14 +50,6 @@ export default function HomeScreen() {
       .eq("id", user.id)
       .single();
     if (data) setDisplayName(data.display_name);
-    const { data: activeProgram } = await supabase
-      .from('programs')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    setHasActiveProgram(!!activeProgram);
   }
 
   async function fetchRecentSessions() {
@@ -112,15 +103,18 @@ export default function HomeScreen() {
 
     const firstDayOfMonth = new Date(year, month, 1);
     let startDayIndex = firstDayOfMonth.getDay();
+    // Adjust index so Mon=0, Tue=1, ..., Sun=6
     startDayIndex = startDayIndex === 0 ? 6 : startDayIndex - 1;
 
     const totalDays = new Date(year, month + 1, 0).getDate();
     const gridDays: GridDay[] = [];
 
+    // 1. Add empty padding blocks for days before the 1st of the month
     for (let i = 0; i < startDayIndex; i++) {
       gridDays.push({ dayNum: null, dateString: null, isToday: false });
     }
 
+    // 2. Add actual days of the month
     for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
       const dateObj = new Date(year, month, dayNum);
       const yyyy = dateObj.getFullYear();
@@ -131,6 +125,11 @@ export default function HomeScreen() {
       const isToday = new Date().toDateString() === dateObj.toDateString();
 
       gridDays.push({ dayNum, dateString, isToday });
+    }
+
+    // 3. Fill the rest of the week so the matrix grid loop concludes evenly
+    while (gridDays.length % 7 !== 0) {
+      gridDays.push({ dayNum: null, dateString: null, isToday: false });
     }
 
     setMonthDays(gridDays);
@@ -191,78 +190,73 @@ export default function HomeScreen() {
         </View>
 
         {/* Premium Hero Card */}
-        <View style={styles.heroCard}>
+        <TouchableOpacity
+          style={styles.heroCard}
+          onPress={() => router.push("/(tabs)/log")}
+          activeOpacity={0.9}
+        >
           <View style={styles.heroContent}>
-            <Text style={styles.heroLabel}>TODAY'S WORKOUT</Text>
-            <Text style={styles.heroTitle}>
-              {hasActiveProgram ? 'Ready to train?' : 'No program set'}
-            </Text>
-            <Text style={styles.heroSub}>
-              {hasActiveProgram
-                ? 'Tap to start your daily session'
-                : 'Set up a program to start tracking'}
-            </Text>
+            <Text style={styles.heroLabel}>TODAYS WORKOUT</Text>
+            <Text style={styles.heroTitle}>Ready to train?</Text>
+            <Text style={styles.heroSub}>Tap to start your daily session</Text>
           </View>
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => router.push(hasActiveProgram ? '/(tabs)/log' : '/(tabs)/programs')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.startText}>
-              {hasActiveProgram ? 'Start Session' : 'Set up Program'}
-            </Text>
+
+          <View style={styles.startButton}>
+            <Text style={styles.startText}>Start Session</Text>
             <View style={styles.startIconCircle}>
               <Text style={styles.startIcon}>▶</Text>
             </View>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
 
-        {/* Grid Month Calendar Section */}
+        {/* Fixed 7-Column Grid Month Calendar Section */}
         <Text style={styles.sectionTitle}>THIS MONTH - {currentMonthName}</Text>
         <View style={styles.calendarCard}>
+          {/* Weekday Labels Row (Structured inside 14.28% explicit cell limits) */}
           <View style={styles.weekLabelsRow}>
-            {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
-              <Text key={index} style={styles.weekLabel}>
-                {day}
-              </Text>
-            ))}
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+              (day, index) => (
+                <View key={index} style={styles.gridCellWrapper}>
+                  <Text style={styles.weekLabel}>{day}</Text>
+                </View>
+              ),
+            )}
           </View>
 
+          {/* 7-Column Days Matrix Layout */}
           <View style={styles.daysGrid}>
             {monthDays.map((day, index) => {
               const isTrained = day.dateString
                 ? completedDates.includes(day.dateString)
                 : false;
 
-              if (day.dayNum === null) {
-                return (
-                  <View key={`empty-${index}`} style={styles.gridDayBoxEmpty} />
-                );
-              }
-
               return (
-                <View
-                  key={`day-${day.dayNum}`}
-                  style={[
-                    styles.gridDayBox,
-                    isTrained && styles.trainedDayBox,
-                    day.isToday && !isTrained && styles.todayBorderBox,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayBoxText,
-                      isTrained && styles.trainedDayBoxText,
-                      day.isToday && styles.todayText,
-                    ]}
-                  >
-                    {day.dayNum}
-                  </Text>
+                <View key={index} style={styles.gridCellWrapper}>
+                  {day.dayNum !== null ? (
+                    <View
+                      style={[
+                        styles.gridDayBox,
+                        isTrained && styles.trainedDayBox,
+                        day.isToday && !isTrained && styles.todayBorderBox,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dayBoxText,
+                          isTrained && styles.trainedDayBoxText,
+                          day.isToday && styles.todayText,
+                        ]}
+                      >
+                        {day.dayNum}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               );
             })}
           </View>
 
+          {/* Calendar Footer Legend Data Info */}
           <View style={styles.calendarFooter}>
             <View style={styles.legendRow}>
               <View style={styles.legendSquare} />
@@ -314,11 +308,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: 480, // Fades perfectly before hitting content-heavy bottom panels
+    height: 480,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
 
-  // Header Component Styling
+  // Premium Header Styles
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -360,7 +354,7 @@ const styles = StyleSheet.create({
   },
   settingsIcon: { color: "#b30000", fontSize: 18 },
 
-  // Crimson Modernized Hero Card
+  // Crimson Hero Card
   heroCard: {
     backgroundColor: "#800000",
     borderRadius: 20,
@@ -432,7 +426,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Calendar Components Setup
+  // Fixed 7-Column Grid Calendar Component Styles
   calendarCard: {
     backgroundColor: "rgba(18, 18, 18, 0.6)",
     borderRadius: 20,
@@ -443,22 +437,23 @@ const styles = StyleSheet.create({
   },
   weekLabelsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 12,
-    paddingHorizontal: 4,
+  },
+  gridCellWrapper: {
+    width: "14.28%", // Allocates an exact 1/7th column segment space
+    alignItems: "center",
+    justifyContent: "center",
   },
   weekLabel: {
     color: "#444",
     fontSize: 11,
     fontWeight: "600",
-    width: 34,
     textAlign: "center",
   },
   daysGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 8,
+    rowGap: 10,
   },
   gridDayBox: {
     width: 34,
@@ -469,11 +464,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.03)",
-  },
-  gridDayBoxEmpty: {
-    width: 34,
-    height: 34,
-    backgroundColor: "transparent",
   },
   trainedDayBox: {
     backgroundColor: "#800000",
@@ -528,7 +518,7 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
 
-  // Info Logs Elements
+  // Sessions Log Cards
   emptyCard: {
     backgroundColor: "rgba(18, 18, 18, 0.4)",
     borderRadius: 16,
