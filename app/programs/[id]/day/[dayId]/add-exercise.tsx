@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -143,9 +143,11 @@ export default function AddExerciseScreen() {
     dayId: string;
   }>();
 
+  const router = useRouter();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filtered, setFiltered] = useState<Exercise[]>([]);
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -162,17 +164,29 @@ export default function AddExerciseScreen() {
     fetchExercises();
   }, []);
 
+  // Combined Search and Category Filtering Logic
   useEffect(() => {
-    if (!search.trim()) {
-      setFiltered(exercises);
-    } else {
-      setFiltered(
-        exercises.filter((e) =>
-          e.name.toLowerCase().includes(search.toLowerCase()),
-        ),
+    let result = exercises;
+
+    // Filter by text search matching name or equipment description
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.name.toLowerCase().includes(query) ||
+          (e.equipment_type && e.equipment_type.toLowerCase().includes(query)),
       );
     }
-  }, [search, exercises]);
+
+    // Filter by selected category pill
+    if (selectedCategory) {
+      result = result.filter(
+        (e) => e.category?.toLowerCase() === selectedCategory.toLowerCase(),
+      );
+    }
+
+    setFiltered(result);
+  }, [search, selectedCategory, exercises]);
 
   async function fetchExercises() {
     setLoading(true);
@@ -204,7 +218,6 @@ export default function AddExerciseScreen() {
       return;
     }
 
-    // Isolate exercises already present in your database by matching lowercase titles
     const currentNames = new Set(exercises.map((e) => e.name.toLowerCase()));
     const missingExercises = SEED_EXERCISES.filter(
       (item) => !currentNames.has(item.name.toLowerCase()),
@@ -219,7 +232,6 @@ export default function AddExerciseScreen() {
       return;
     }
 
-    // Attach configuration details to the batch transaction mapping payload
     const payload = missingExercises.map((item) => ({
       ...item,
       is_system: true,
@@ -348,7 +360,6 @@ export default function AddExerciseScreen() {
         </TouchableOpacity>
         <Text style={styles.topBarTitle}>Add Exercise</Text>
 
-        {/* Actions row container */}
         <View style={styles.topBarActions}>
           <TouchableOpacity
             style={styles.seedIconBtn}
@@ -376,15 +387,9 @@ export default function AddExerciseScreen() {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          selectedCount > 0 && styles.scrollWithFooter,
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Search */}
+      {/* Filter Header Panel */}
+      <View style={styles.filterSection}>
+        {/* Search Input Bar */}
         <View style={styles.searchRow}>
           <Ionicons
             name="search-outline"
@@ -395,7 +400,7 @@ export default function AddExerciseScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Search exercises…"
-            placeholderTextColor="#333"
+            placeholderTextColor="#444"
             value={search}
             onChangeText={setSearch}
           />
@@ -406,6 +411,63 @@ export default function AddExerciseScreen() {
           )}
         </View>
 
+        {/* Categories Slider Row */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          <TouchableOpacity
+            style={[
+              styles.categoryPill,
+              selectedCategory === null && styles.categoryPillActive,
+            ]}
+            onPress={() => setSelectedCategory(null)}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.categoryPillText,
+                selectedCategory === null && styles.categoryPillTextActive,
+              ]}
+            >
+              All Movements
+            </Text>
+          </TouchableOpacity>
+          {CATEGORIES.map((cat) => {
+            const isTarget = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryPill,
+                  isTarget && styles.categoryPillActive,
+                ]}
+                onPress={() => setSelectedCategory(isTarget ? null : cat)}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.categoryPillText,
+                    isTarget && styles.categoryPillTextActive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          selectedCount > 0 && styles.scrollWithFooter,
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Loading Indicator */}
         {loading && (
           <View style={styles.centerContainer}>
@@ -413,7 +475,7 @@ export default function AddExerciseScreen() {
           </View>
         )}
 
-        {/* Empty State Seed Engine Prompt Callout Banner */}
+        {/* Empty State Seed Prompt */}
         {!loading && exercises.length === 0 && (
           <View style={styles.seedContainerCard}>
             <Ionicons
@@ -449,6 +511,7 @@ export default function AddExerciseScreen() {
             style={styles.noResultsCard}
             onPress={() => {
               setNewName(search);
+              if (selectedCategory) setNewCategory(selectedCategory);
               setShowCreateModal(true);
             }}
             activeOpacity={0.8}
@@ -465,11 +528,36 @@ export default function AddExerciseScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Filter matches empty alert template */}
+        {search.length === 0 &&
+          filtered.length === 0 &&
+          exercises.length > 0 &&
+          !loading && (
+            <View style={styles.emptyFilterContainer}>
+              <Ionicons
+                name="filter-outline"
+                size={28}
+                color="#333"
+                style={{ marginBottom: 8 }}
+              />
+              <Text style={styles.emptyFilterTitle}>No exercises found</Text>
+              <Text style={styles.emptyFilterSub}>
+                There are no movements logged under the "{selectedCategory}"
+                track yet.
+              </Text>
+            </View>
+          )}
+
         {/* Exercise list rendering */}
         {filtered.length > 0 && !loading && (
           <>
             <View style={styles.sectionRow}>
-              <Text style={styles.sectionLabel}>SELECT EXERCISES</Text>
+              <Text style={styles.sectionLabel}>
+                {selectedCategory
+                  ? `${selectedCategory.toUpperCase()} EXERCISES`
+                  : "SELECT EXERCISES"}{" "}
+                ({filtered.length})
+              </Text>
               {selectedCount > 0 && (
                 <TouchableOpacity onPress={() => setSelectedIds(new Set())}>
                   <Text style={styles.clearText}>CLEAR ALL</Text>
@@ -544,7 +632,7 @@ export default function AddExerciseScreen() {
         </View>
       )}
 
-      {/* ── Create Custom Single Exercise Modal ── */}
+      {/* Create Custom Single Exercise Modal */}
       <Modal
         visible={showCreateModal}
         animationType="slide"
@@ -658,7 +746,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 56,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   backBtn: {
     width: 36,
@@ -692,8 +780,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   topBarTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  scroll: { paddingHorizontal: 20, paddingBottom: 48, paddingTop: 4 },
-  scrollWithFooter: { paddingBottom: 100 },
+
+  // Filter Header Container Section
+  filterSection: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -702,13 +794,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1a1a1a",
     paddingHorizontal: 12,
-    marginBottom: 20,
+    marginBottom: 12,
   },
   searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, color: "#fff", fontSize: 14, paddingVertical: 13 },
+  searchInput: { flex: 1, color: "#fff", fontSize: 14, paddingVertical: 12 },
+  categoryScroll: {
+    paddingVertical: 2,
+    gap: 8,
+  },
+  categoryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: "#111",
+    borderWidth: 1,
+    borderColor: "#1a1a1a",
+  },
+  categoryPillActive: {
+    backgroundColor: "rgba(128,0,0,0.15)",
+    borderColor: "rgba(128,0,0,0.4)",
+  },
+  categoryPillText: {
+    color: "#444",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  categoryPillTextActive: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+
+  scroll: { paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 },
+  scrollWithFooter: { paddingBottom: 100 },
   centerContainer: { marginVertical: 30, alignItems: "center" },
 
-  // Seed Premium Crimson Feature Styles
   seedContainerCard: {
     backgroundColor: "rgba(128,0,0,0.05)",
     borderWidth: 1,
@@ -764,6 +883,26 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   noResultsSub: { color: "#800000", fontSize: 12 },
+
+  emptyFilterContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 40,
+    paddingHorizontal: 20,
+  },
+  emptyFilterTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  emptyFilterSub: {
+    color: "#444",
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -799,7 +938,7 @@ const styles = StyleSheet.create({
   },
   exerciseItemLeft: { flex: 1 },
   exerciseCategory: {
-    color: "#444",
+    color: "#555",
     fontSize: 9,
     letterSpacing: 1,
     marginBottom: 3,
