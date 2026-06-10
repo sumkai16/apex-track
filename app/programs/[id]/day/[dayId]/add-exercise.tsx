@@ -47,7 +47,6 @@ const EQUIPMENT_TYPES = [
   "Other",
 ];
 
-// Production-ready predefined standard exercise matrix
 const SEED_EXERCISES = [
   { name: "Barbell Bench Press", category: "Chest", equipment_type: "Barbell" },
   {
@@ -58,7 +57,6 @@ const SEED_EXERCISES = [
   { name: "Cable Crossover", category: "Chest", equipment_type: "Cable" },
   { name: "Chest Fly", category: "Chest", equipment_type: "Machine" },
   { name: "Push-Up", category: "Chest", equipment_type: "Bodyweight" },
-
   {
     name: "Conventional Deadlift",
     category: "Back",
@@ -76,7 +74,6 @@ const SEED_EXERCISES = [
     category: "Back",
     equipment_type: "Dumbbell",
   },
-
   { name: "Barbell Back Squat", category: "Legs", equipment_type: "Barbell" },
   { name: "Romanian Deadlift", category: "Legs", equipment_type: "Barbell" },
   { name: "Leg Press", category: "Legs", equipment_type: "Machine" },
@@ -91,7 +88,6 @@ const SEED_EXERCISES = [
     equipment_type: "Kettlebell",
   },
   { name: "Lying Leg Curl", category: "Legs", equipment_type: "Machine" },
-
   {
     name: "Overhead Barbell Press",
     category: "Shoulders",
@@ -108,7 +104,6 @@ const SEED_EXERCISES = [
     category: "Shoulders",
     equipment_type: "Dumbbell",
   },
-
   { name: "Dumbbell Bicep Curl", category: "Arms", equipment_type: "Dumbbell" },
   { name: "Tricep Rope Pushdown", category: "Arms", equipment_type: "Cable" },
   {
@@ -126,12 +121,10 @@ const SEED_EXERCISES = [
     category: "Arms",
     equipment_type: "Barbell",
   },
-
   { name: "Hanging Leg Raise", category: "Core", equipment_type: "Bodyweight" },
   { name: "Plank", category: "Core", equipment_type: "Bodyweight" },
   { name: "Ab Wheel Rollout", category: "Core", equipment_type: "Other" },
   { name: "Cable Crunch", category: "Core", equipment_type: "Cable" },
-
   { name: "Treadmill Run", category: "Cardio", equipment_type: "Machine" },
   { name: "Rowing Machine", category: "Cardio", equipment_type: "Machine" },
   { name: "Burpee", category: "Full Body", equipment_type: "Bodyweight" },
@@ -153,7 +146,6 @@ export default function AddExerciseScreen() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
 
-  // Create exercise modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -164,11 +156,9 @@ export default function AddExerciseScreen() {
     fetchExercises();
   }, []);
 
-  // Combined Search and Category Filtering Logic
   useEffect(() => {
     let result = exercises;
 
-    // Filter by text search matching name or equipment description
     if (search.trim()) {
       const query = search.toLowerCase();
       result = result.filter(
@@ -178,7 +168,6 @@ export default function AddExerciseScreen() {
       );
     }
 
-    // Filter by selected category pill
     if (selectedCategory) {
       result = result.filter(
         (e) => e.category?.toLowerCase() === selectedCategory.toLowerCase(),
@@ -206,7 +195,6 @@ export default function AddExerciseScreen() {
     }
   }
 
-  // Seeding engine execution workflow
   async function handleSeedLibrary() {
     setSeeding(true);
     const {
@@ -387,31 +375,28 @@ export default function AddExerciseScreen() {
         </View>
       </View>
 
-      {/* Filter Header Panel */}
       <View style={styles.filterSection}>
-        {/* Search Input Bar */}
         <View style={styles.searchRow}>
           <Ionicons
             name="search-outline"
             size={16}
-            color="#444"
+            color="#888"
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
             placeholder="Search exercises…"
-            placeholderTextColor="#444"
+            placeholderTextColor="#666"
             value={search}
             onChangeText={setSearch}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={16} color="#444" />
+              <Ionicons name="close-circle" size={16} color="#888" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Categories Slider Row */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -435,7 +420,8 @@ export default function AddExerciseScreen() {
             </Text>
           </TouchableOpacity>
           {CATEGORIES.map((cat) => {
-            const isTarget = selectedCategory === cat;
+            const isTarget =
+              selectedCategory?.toLowerCase() === cat.toLowerCase();
             return (
               <TouchableOpacity
                 key={cat}
@@ -468,14 +454,12 @@ export default function AddExerciseScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Loading Indicator */}
         {loading && (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="small" color="#800000" />
           </View>
         )}
 
-        {/* Empty State Seed Prompt */}
         {!loading && exercises.length === 0 && (
           <View style={styles.seedContainerCard}>
             <Ionicons
@@ -505,7 +489,6 @@ export default function AddExerciseScreen() {
           </View>
         )}
 
-        {/* Create new hint from custom search input */}
         {search.length > 0 && filtered.length === 0 && !loading && (
           <TouchableOpacity
             style={styles.noResultsCard}
@@ -528,7 +511,6 @@ export default function AddExerciseScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Filter matches empty alert template */}
         {search.length === 0 &&
           filtered.length === 0 &&
           exercises.length > 0 &&
@@ -537,7 +519,7 @@ export default function AddExerciseScreen() {
               <Ionicons
                 name="filter-outline"
                 size={28}
-                color="#333"
+                color="#888"
                 style={{ marginBottom: 8 }}
               />
               <Text style={styles.emptyFilterTitle}>No exercises found</Text>
@@ -548,7 +530,6 @@ export default function AddExerciseScreen() {
             </View>
           )}
 
-        {/* Exercise list rendering */}
         {filtered.length > 0 && !loading && (
           <>
             <View style={styles.sectionRow}>
@@ -607,7 +588,6 @@ export default function AddExerciseScreen() {
         )}
       </ScrollView>
 
-      {/* Sticky footer UI elements */}
       {selectedCount > 0 && (
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
@@ -632,7 +612,6 @@ export default function AddExerciseScreen() {
         </View>
       )}
 
-      {/* Create Custom Single Exercise Modal */}
       <Modal
         visible={showCreateModal}
         animationType="slide"
@@ -663,7 +642,7 @@ export default function AddExerciseScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder="e.g. Bulgarian Split Squat"
-              placeholderTextColor="#333"
+              placeholderTextColor="#666"
               value={newName}
               onChangeText={setNewName}
               autoFocus
@@ -781,7 +760,6 @@ const styles = StyleSheet.create({
   },
   topBarTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
 
-  // Filter Header Container Section
   filterSection: {
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -798,24 +776,26 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, color: "#fff", fontSize: 14, paddingVertical: 12 },
+
   categoryScroll: {
-    paddingVertical: 2,
-    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 20,
   },
   categoryPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 10,
     backgroundColor: "#111",
     borderWidth: 1,
     borderColor: "#1a1a1a",
+    marginRight: 10,
   },
   categoryPillActive: {
-    backgroundColor: "rgba(128,0,0,0.15)",
-    borderColor: "rgba(128,0,0,0.4)",
+    backgroundColor: "rgba(128,0,0,0.2)",
+    borderColor: "rgba(128,0,0,0.6)",
   },
   categoryPillText: {
-    color: "#444",
+    color: "#a3a3a3", // Much higher legibility for dark mode screens
     fontSize: 13,
     fontWeight: "500",
   },
@@ -844,7 +824,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   seedDescriptionText: {
-    color: "#777",
+    color: "#aaa",
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
@@ -882,7 +862,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
-  noResultsSub: { color: "#800000", fontSize: 12 },
+  noResultsSub: { color: "#ff4d4d", fontSize: 12 },
 
   emptyFilterContainer: {
     alignItems: "center",
@@ -897,7 +877,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   emptyFilterSub: {
-    color: "#444",
+    color: "#888",
     fontSize: 12,
     textAlign: "center",
     lineHeight: 18,
@@ -910,13 +890,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionLabel: {
-    color: "#555",
+    color: "#888",
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   clearText: {
-    color: "#800000",
+    color: "#ff4d4d",
     fontSize: 10,
     letterSpacing: 1,
     fontWeight: "600",
@@ -938,7 +918,7 @@ const styles = StyleSheet.create({
   },
   exerciseItemLeft: { flex: 1 },
   exerciseCategory: {
-    color: "#555",
+    color: "#888",
     fontSize: 9,
     letterSpacing: 1,
     marginBottom: 3,
@@ -949,13 +929,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 2,
   },
-  exerciseEquipment: { color: "#333", fontSize: 11, marginTop: 1 },
+  exerciseEquipment: { color: "#666", fontSize: 11, marginTop: 1 },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: "#333",
+    borderColor: "#444",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
@@ -988,7 +968,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 24,
   },
-  footerLabel: { color: "#555", fontSize: 12 },
+  footerLabel: { color: "#888", fontSize: 12 },
   addBtn: {
     backgroundColor: "#800000",
     borderRadius: 12,
@@ -1023,7 +1003,7 @@ const styles = StyleSheet.create({
   modalTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
   modalScroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 48 },
   modalSectionLabel: {
-    color: "#555",
+    color: "#888",
     fontSize: 10,
     letterSpacing: 1.5,
     textTransform: "uppercase",
@@ -1059,7 +1039,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(128,0,0,0.15)",
     borderColor: "rgba(128,0,0,0.5)",
   },
-  chipText: { color: "#555", fontSize: 13 },
+  chipText: { color: "#a3a3a3", fontSize: 13 },
   chipTextSelected: { color: "#fff", fontWeight: "600" },
   modalSaveBtn: {
     backgroundColor: "#800000",

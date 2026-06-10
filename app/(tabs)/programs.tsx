@@ -30,7 +30,6 @@ export default function ProgramsScreen() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Search, Sort, and Volume Filter Tracking matrix
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
@@ -97,7 +96,6 @@ export default function ProgramsScreen() {
     setPrograms((prev) => prev.filter((p) => p.id !== id));
   }
 
-  // Combined Filtering and Sorting processing block
   const processedPrograms = programs
     .filter((program) => {
       const matchesSearch =
@@ -109,7 +107,6 @@ export default function ProgramsScreen() {
 
       const matchesActiveFilter = !showOnlyActive || program.is_active;
 
-      // Weekly Exercise Load Filter Logic
       let matchesVolume = true;
       if (volumeFilter === "LIGHTWEIGHT") {
         matchesVolume = program.exercise_count < 10;
@@ -127,6 +124,18 @@ export default function ProgramsScreen() {
       const dateB = new Date(b.created_at).getTime();
       return sortNewestFirst ? dateB - dateA : dateA - dateB;
     });
+
+  function formatDate(dateStr: string) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return `${Math.floor(diffDays / 7)} weeks ago`;
+  }
 
   return (
     <View style={styles.container}>
@@ -150,7 +159,6 @@ export default function ProgramsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Search & Filter Controls Panel Layout Block */}
         {programs.length > 0 && (
           <View style={styles.filterSection}>
             <View style={styles.filterContainer}>
@@ -179,7 +187,6 @@ export default function ProgramsScreen() {
                 )}
               </View>
 
-              {/* Dynamic Creation Date Flip Arrow Toggle */}
               <TouchableOpacity
                 style={[
                   styles.sortButton,
@@ -218,12 +225,7 @@ export default function ProgramsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Quick Exercise Volume Filter Matrix */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.volumeScrollTrack}
-            >
+            <View style={styles.volumeFilterContainer}>
               {(
                 [
                   { id: "ALL", label: "All Layouts" },
@@ -248,13 +250,16 @@ export default function ProgramsScreen() {
                         styles.volumeChipText,
                         isSelected && styles.volumeChipTextActive,
                       ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
                     >
                       {chip.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
+            </View>
           </View>
         )}
 
@@ -308,45 +313,79 @@ export default function ProgramsScreen() {
               key={program.id}
               style={styles.programCard}
               onPress={() => router.push(`/programs/${program.id}`)}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <View style={styles.cardTop}>
-                <View style={styles.badgeCluster}>
-                  {program.is_active && (
-                    <View style={styles.activeBadge}>
-                      <Text style={styles.activeBadgeText}>ACTIVE</Text>
-                    </View>
-                  )}
+              {/* Accent bar at the top */}
+              <View
+                style={[
+                  styles.accentBar,
+                  program.is_active && styles.accentBarActive,
+                ]}
+              />
 
-                  {/* Keep metadata context intact */}
-                  <View style={styles.metaBadge}>
-                    <Text style={styles.metaBadgeText}>7 DAYS</Text>
-                  </View>
-                  <View style={styles.metaBadge}>
-                    <Text style={styles.metaBadgeText}>
-                      {program.exercise_count}{" "}
-                      {program.exercise_count === 1 ? "MOVE" : "MOVES"}
-                    </Text>
-                  </View>
+              {/* Header with title and delete button */}
+              <View style={styles.cardHeader}>
+                <View style={styles.titleSection}>
+                  <Text style={styles.programName}>{program.name}</Text>
+                  <Text style={styles.createdDate}>
+                    Created {formatDate(program.created_at)}
+                  </Text>
                 </View>
-
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => deleteProgram(program.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#444" />
+                  <Ionicons name="trash-outline" size={18} color="#555" />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.programName}>{program.name}</Text>
+              {/* Description */}
               {program.description ? (
                 <Text style={styles.programDesc} numberOfLines={2}>
                   {program.description}
                 </Text>
               ) : null}
+
+              {/* Stats grid */}
+              <View style={styles.statsContainer}>
+                {program.is_active && (
+                  <View style={styles.statItem}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color="#800000"
+                    />
+                    <View>
+                      <Text style={styles.statLabel}>Status</Text>
+                      <Text style={styles.statValue}>Active</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.statItem}>
+                  <Ionicons name="calendar-outline" size={16} color="#555" />
+                  <View>
+                    <Text style={styles.statLabel}>Days</Text>
+                    <Text style={styles.statValue}>{program.day_count}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.statItem}>
+                  <Ionicons name="fitness-outline" size={16} color="#555" />
+                  <View>
+                    <Text style={styles.statLabel}>Exercises</Text>
+                    <Text style={styles.statValue}>
+                      {program.exercise_count}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Footer action */}
               <View style={styles.cardFooter}>
-                <Text style={styles.cardFooterText}>VIEW PROGRAM →</Text>
+                <Text style={styles.cardFooterText}>VIEW PROGRAM</Text>
+                <Ionicons name="arrow-forward" size={14} color="#800000" />
               </View>
             </TouchableOpacity>
           ))
@@ -382,7 +421,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // Filtering Panel Elements
   filterSection: {
     marginBottom: 24,
   },
@@ -390,6 +428,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginBottom: 12,
   },
   searchBarContainer: {
     flex: 1,
@@ -432,18 +471,24 @@ const styles = StyleSheet.create({
   filterPillText: { color: "#555", fontSize: 13, fontWeight: "600" },
   filterPillTextActive: { color: "#800000" },
 
-  // Horizontal Exercise Volume Track Slider
-  volumeScrollTrack: {
-    paddingTop: 10,
-    gap: 6,
+  volumeFilterContainer: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
   },
   volumeChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    flex: 1,
+    paddingVertical: 10,
     borderRadius: 8,
     backgroundColor: "#0d0d0d",
     borderWidth: 1,
     borderColor: "#161616",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   volumeChipActive: {
     backgroundColor: "rgba(128,0,0,0.08)",
@@ -451,8 +496,9 @@ const styles = StyleSheet.create({
   },
   volumeChipText: {
     color: "#444",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "500",
+    textAlign: "center",
   },
   volumeChipTextActive: {
     color: "#fff",
@@ -490,70 +536,112 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 
+  // NEW CARD DESIGN
   programCard: {
-    backgroundColor: "#111",
+    backgroundColor: "#0d0d0d",
     borderRadius: 16,
-    padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#1a1a1a",
+    borderColor: "#161616",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  cardTop: {
+
+  // Accent bar at top
+  accentBar: {
+    height: 3,
+    backgroundColor: "rgba(128,0,0,0.3)",
+  },
+  accentBarActive: {
+    backgroundColor: "#800000",
+  },
+
+  // Header section
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    alignItems: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
-  badgeCluster: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  activeBadge: {
-    backgroundColor: "rgba(128,0,0,0.2)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: "rgba(128,0,0,0.4)",
-  },
-  activeBadgeText: {
-    color: "#800000",
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
-  metaBadge: {
-    backgroundColor: "#161616",
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: "#222",
-  },
-  metaBadgeText: {
-    color: "#666",
-    fontSize: 9,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-  },
-  deleteBtn: { padding: 4 },
+  titleSection: { flex: 1, marginRight: 12 },
   programName: {
     color: "#fff",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
+  createdDate: {
+    color: "#444",
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  deleteBtn: {
+    padding: 8,
+    marginRight: -8,
+    marginTop: -8,
+  },
+
+  // Description
   programDesc: {
-    color: "#555",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 14,
+    color: "#666",
+    fontSize: 12,
+    lineHeight: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  cardFooter: { marginTop: 4 },
+
+  // Stats grid
+  statsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#161616",
+    borderBottomWidth: 1,
+    borderBottomColor: "#161616",
+    gap: 2,
+  },
+  statItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(128,0,0,0.04)",
+    borderRadius: 8,
+  },
+  statLabel: {
+    color: "#444",
+    fontSize: 9,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  statValue: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  // Footer
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
   cardFooterText: {
     color: "#800000",
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
     letterSpacing: 1,
   },
