@@ -103,18 +103,15 @@ export default function HomeScreen() {
 
     const firstDayOfMonth = new Date(year, month, 1);
     let startDayIndex = firstDayOfMonth.getDay();
-    // Adjust index so Mon=0, Tue=1, ..., Sun=6
     startDayIndex = startDayIndex === 0 ? 6 : startDayIndex - 1;
 
     const totalDays = new Date(year, month + 1, 0).getDate();
     const gridDays: GridDay[] = [];
 
-    // 1. Add empty padding blocks for days before the 1st of the month
     for (let i = 0; i < startDayIndex; i++) {
       gridDays.push({ dayNum: null, dateString: null, isToday: false });
     }
 
-    // 2. Add actual days of the month
     for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
       const dateObj = new Date(year, month, dayNum);
       const yyyy = dateObj.getFullYear();
@@ -127,7 +124,6 @@ export default function HomeScreen() {
       gridDays.push({ dayNum, dateString, isToday });
     }
 
-    // 3. Fill the rest of the week so the matrix grid loop concludes evenly
     while (gridDays.length % 7 !== 0) {
       gridDays.push({ dayNum: null, dateString: null, isToday: false });
     }
@@ -163,8 +159,8 @@ export default function HomeScreen() {
 
       {/* Dynamic Crimson Ambient Background Glow */}
       <LinearGradient
-        colors={["rgba(128, 0, 0, 0.22)", "rgba(15, 5, 5, 0.4)", "#050505"]}
-        locations={[0.0, 0.4, 0.7]}
+        colors={["rgba(140, 0, 0, 0.24)", "rgba(15, 5, 5, 0.5)", "#050505"]}
+        locations={[0.0, 0.35, 0.75]}
         style={styles.absoluteGradient}
       />
 
@@ -172,100 +168,155 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Modern Profile Header */}
-        <View style={styles.header}>
-          <View>
+        {/* Modern Profile Header with Absolute Centered App Branding */}
+        <View style={styles.headerContainer}>
+          {/* Left Block: Profile Info */}
+          <View style={styles.leftHeaderBlock}>
             <View style={styles.greetingBadge}>
               <Text style={styles.greeting}>{getGreeting()}</Text>
             </View>
-            <Text style={styles.name}>{displayName || "Athlete"} 👊</Text>
+            <View style={styles.nameContainer}>
+              <Text style={styles.name}>{displayName || "Athlete"}</Text>
+              <Text style={styles.nameAccent}> </Text>
+            </View>
           </View>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={handleLogout}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.settingsIcon}>⚙</Text>
-          </TouchableOpacity>
+
+          {/* Absolute Center Block: APEX TRACK Branded Gradient Badge */}
+          <View style={styles.absoluteCenterContainer} pointerEvents="none">
+            <LinearGradient
+              colors={["rgba(20, 20, 20, 0.85)", "rgba(179, 0, 0, 0.15)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.brandGradientBadge}
+            >
+              <Text style={styles.brandTextPrimary}>
+                APEX <Text style={styles.brandTextSecondary}>TRACK</Text>
+              </Text>
+            </LinearGradient>
+          </View>
+
+          {/* Right Block: Dedicated Logout Action Button (Replaced image_68a29e.png) */}
+          <View style={styles.rightHeaderBlock}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.logoutIcon}>➔</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Premium Hero Card */}
-        <TouchableOpacity
-          style={styles.heroCard}
-          onPress={() => router.push("/(tabs)/log")}
-          activeOpacity={0.9}
-        >
-          <View style={styles.heroContent}>
-            <Text style={styles.heroLabel}>TODAYS WORKOUT</Text>
-            <Text style={styles.heroTitle}>Ready to train?</Text>
-            <Text style={styles.heroSub}>Tap to start your daily session</Text>
-          </View>
-
-          <View style={styles.startButton}>
-            <Text style={styles.startText}>Start Session</Text>
-            <View style={styles.startIconCircle}>
-              <Text style={styles.startIcon}>▶</Text>
+        {/* Professional Hero Card */}
+        <View style={styles.heroContainer}>
+          <LinearGradient
+            colors={[
+              "rgba(163, 0, 0, 0.18)",
+              "rgba(13, 13, 13, 0.5)",
+              "#0d0d0d",
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroGradientStyle}
+          />
+          <View style={styles.heroInnerRow}>
+            <View style={styles.heroTextLayout}>
+              <Text style={styles.heroLabelText}>PERFORMANCE BRIEF</Text>
+              <Text style={styles.heroTitleText}>CHASE THE APEX</Text>
+              <Text style={styles.heroSubText}>
+                Execute your scheduled session
+              </Text>
             </View>
+
+            <TouchableOpacity
+              style={styles.modernActionPill}
+              onPress={() => router.push("/(tabs)/log")}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modernActionText}>Start</Text>
+              <View style={styles.modernActionCircle}>
+                <Text style={styles.modernActionArrow}>▶</Text>
+              </View>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
 
-        {/* Fixed 7-Column Grid Month Calendar Section */}
-        <Text style={styles.sectionTitle}>THIS MONTH - {currentMonthName}</Text>
-        <View style={styles.calendarCard}>
-          {/* Weekday Labels Row (Structured inside 14.28% explicit cell limits) */}
-          <View style={styles.weekLabelsRow}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-              (day, index) => (
-                <View key={index} style={styles.gridCellWrapper}>
-                  <Text style={styles.weekLabel}>{day}</Text>
-                </View>
-              ),
-            )}
-          </View>
+        {/* Calendar Section */}
+        <Text style={styles.sectionTitle}>THIS MONTH — {currentMonthName}</Text>
+        <View style={styles.calendarCardContainer}>
+          <LinearGradient
+            colors={[
+              "rgba(128, 0, 0, 0.12)",
+              "rgba(13, 13, 13, 0.3)",
+              "#0a0a0a",
+            ]}
+            locations={[0.0, 0.5, 1.0]}
+            style={styles.calendarCardGradient}
+          />
+          <View style={styles.calendarInnerContent}>
+            {/* Weekday Labels Row */}
+            <View style={styles.weekLabelsRow}>
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                (day, index) => (
+                  <View key={index} style={styles.gridCellWrapper}>
+                    <Text style={styles.weekLabel}>{day}</Text>
+                  </View>
+                ),
+              )}
+            </View>
 
-          {/* 7-Column Days Matrix Layout */}
-          <View style={styles.daysGrid}>
-            {monthDays.map((day, index) => {
-              const isTrained = day.dateString
-                ? completedDates.includes(day.dateString)
-                : false;
+            {/* 7-Column Days Matrix Layout */}
+            <View style={styles.daysGrid}>
+              {monthDays.map((day, index) => {
+                const isTrained = day.dateString
+                  ? completedDates.includes(day.dateString)
+                  : false;
 
-              return (
-                <View key={index} style={styles.gridCellWrapper}>
-                  {day.dayNum !== null ? (
-                    <View
-                      style={[
-                        styles.gridDayBox,
-                        isTrained && styles.trainedDayBox,
-                        day.isToday && !isTrained && styles.todayBorderBox,
-                      ]}
-                    >
-                      <Text
+                return (
+                  <View key={index} style={styles.gridCellWrapper}>
+                    {day.dayNum !== null ? (
+                      <View
                         style={[
-                          styles.dayBoxText,
-                          isTrained && styles.trainedDayBoxText,
-                          day.isToday && styles.todayText,
+                          styles.gridDayBox,
+                          day.isToday && styles.todayActiveBox,
                         ]}
                       >
-                        {day.dayNum}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
+                        <Text
+                          style={[
+                            styles.dayBoxText,
+                            day.isToday && styles.todayActiveText,
+                          ]}
+                        >
+                          {day.dayNum}
+                        </Text>
 
-          {/* Calendar Footer Legend Data Info */}
-          <View style={styles.calendarFooter}>
-            <View style={styles.legendRow}>
-              <View style={styles.legendSquare} />
-              <Text style={styles.legendText}>Trained</Text>
+                        {/* Premium Dot Indicator */}
+                        {isTrained && (
+                          <View
+                            style={[
+                              styles.trainedIndicatorDot,
+                              day.isToday && styles.trainedIndicatorDotToday,
+                            ]}
+                          />
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
-            <Text style={styles.footerCountText}>
-              {sessionsThisMonthCount} session
-              {sessionsThisMonthCount !== 1 ? "s" : ""} this month
-            </Text>
+
+            {/* Calendar Footer */}
+            <View style={styles.calendarFooter}>
+              <View style={styles.legendRow}>
+                <View style={styles.legendCircle} />
+                <Text style={styles.legendText}>Trained Session</Text>
+              </View>
+              <Text style={styles.footerCountText}>
+                {sessionsThisMonthCount} completion
+                {sessionsThisMonthCount !== 1 ? "s" : ""}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -290,8 +341,10 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <View style={styles.sessionMeta}>
-                <Text style={styles.sessionCheck}>✓</Text>
-                <Text style={styles.sessionInfo}>Completed</Text>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.sessionCheck}>✓</Text>
+                  <Text style={styles.sessionInfo}>COMPLETED</Text>
+                </View>
               </View>
             </View>
           ))
@@ -308,16 +361,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: 480,
+    height: 520,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
 
-  // Premium Header Styles
-  header: {
+  // Precise Grid Row System for Header Elements
+  headerContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 28,
+    width: "100%",
+    position: "relative",
+    height: 56,
+  },
+  leftHeaderBlock: {
+    flexDirection: "column",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  rightHeaderBlock: {
+    zIndex: 2,
   },
   greetingBadge: {
     backgroundColor: "rgba(255, 255, 255, 0.04)",
@@ -325,129 +389,205 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     alignSelf: "flex-start",
-    marginBottom: 6,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
   },
   greeting: {
-    color: "#aaa",
-    fontSize: 10,
+    color: "#666",
+    fontSize: 9,
     fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
+  nameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   name: {
     color: "#fff",
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.5,
   },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: "rgba(255,255,255,0.03)",
+  nameAccent: {
+    color: "#b30000",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  // Absolute Centering Layout Layer for App Identity Branding
+  absoluteCenterContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  brandGradientBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(179, 0, 0, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  brandTextPrimary: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: 2.0,
+    textTransform: "uppercase",
+  },
+  brandTextSecondary: {
+    color: "#e60000",
+    fontWeight: "900",
+  },
+
+  // Semantic Logout Action Button (Replaced style template from image_68a29e.png)
+  logoutButton: {
+    width: 42,
+    height: 42,
+    backgroundColor: "rgba(179, 0, 0, 0.03)",
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(179, 0, 0, 0.15)",
   },
-  settingsIcon: { color: "#b30000", fontSize: 18 },
+  logoutIcon: {
+    color: "#e60000",
+    fontSize: 15,
+    fontWeight: "900",
+  },
 
-  // Crimson Hero Card
-  heroCard: {
-    backgroundColor: "#800000",
+  // Hero Card
+  heroContainer: {
+    backgroundColor: "#0d0d0d",
     borderRadius: 20,
-    padding: 24,
-    marginBottom: 28,
-    shadowColor: "#800000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 8,
+    marginBottom: 32,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "#1a1a1a",
   },
-  heroContent: {
-    marginBottom: 20,
+  heroGradientStyle: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  heroLabel: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  heroTitle: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  heroSub: {
-    color: "rgba(255,255,255,0.65)",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  startButton: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  heroInnerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingVertical: 24,
+    paddingHorizontal: 20,
   },
-  startText: {
-    color: "#000",
-    fontSize: 15,
+  heroTextLayout: {
+    flex: 1,
+    marginRight: 16,
+  },
+  heroLabelText: {
+    color: "#b30000",
+    fontSize: 9,
     fontWeight: "700",
-    letterSpacing: -0.2,
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
-  startIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  heroTitleText: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  heroSubText: {
+    color: "#888",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  modernActionPill: {
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingLeft: 18,
+    paddingRight: 10,
+    borderRadius: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modernActionText: {
+    color: "#000",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modernActionCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#000",
     alignItems: "center",
     justifyContent: "center",
     paddingLeft: 2,
   },
-  startIcon: {
+  modernActionArrow: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 9,
   },
 
   sectionTitle: {
-    color: "#666",
-    fontSize: 11,
-    letterSpacing: 1.2,
-    marginBottom: 12,
+    color: "#444",
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: 14,
     fontWeight: "700",
-    textTransform: "uppercase",
   },
 
-  // Fixed 7-Column Grid Calendar Component Styles
-  calendarCard: {
-    backgroundColor: "rgba(18, 18, 18, 0.6)",
+  // Calendar Components
+  calendarCardContainer: {
+    backgroundColor: "#080808",
     borderRadius: 20,
-    padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-    marginBottom: 24,
+    borderColor: "#141414",
+    marginBottom: 32,
+    overflow: "hidden",
+  },
+  calendarCardGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  calendarInnerContent: {
+    padding: 16,
   },
   weekLabelsRow: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#141414",
+    paddingBottom: 10,
   },
   gridCellWrapper: {
-    width: "14.28%", // Allocates an exact 1/7th column segment space
+    width: "14.28%",
     alignItems: "center",
     justifyContent: "center",
   },
   weekLabel: {
     color: "#444",
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
   },
   daysGrid: {
@@ -456,95 +596,119 @@ const styles = StyleSheet.create({
     rowGap: 10,
   },
   gridDayBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.01)",
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "rgba(255,255,255,0.02)",
   },
-  trainedDayBox: {
+  todayActiveBox: {
     backgroundColor: "#800000",
-    borderColor: "#a30000",
-  },
-  todayBorderBox: {
-    borderColor: "rgba(128,0,0,0.8)",
-    backgroundColor: "rgba(128,0,0,0.15)",
+    borderColor: "#b30000",
   },
   dayBoxText: {
-    color: "#555",
+    color: "#777",
     fontSize: 12,
     fontWeight: "600",
   },
-  trainedDayBoxText: {
+  todayActiveText: {
     color: "#fff",
-    fontWeight: "700",
+    fontWeight: "800",
   },
-  todayText: {
-    color: "#fff",
+  trainedIndicatorDot: {
+    position: "absolute",
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#b30000",
+  },
+  trainedIndicatorDotToday: {
+    backgroundColor: "#fff",
   },
   calendarFooter: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
-    paddingTop: 12,
+    justifyContent: "space-between",
+    marginTop: 18,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.04)",
-    gap: 16,
+    borderTopColor: "#141414",
   },
   legendRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  legendSquare: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-    backgroundColor: "#800000",
+  legendCircle: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#b30000",
   },
   legendText: {
-    color: "#555",
+    color: "#444",
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   footerCountText: {
     color: "#555",
     fontSize: 11,
-    fontWeight: "500",
-    flex: 1,
-    textAlign: "left",
+    fontWeight: "600",
   },
 
-  // Sessions Log Cards
+  // Log Cards List
   emptyCard: {
-    backgroundColor: "rgba(18, 18, 18, 0.4)",
+    backgroundColor: "#0d0d0d",
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "#161616",
   },
-  emptyText: { color: "#444", fontSize: 13, textAlign: "center" },
+  emptyText: { color: "#444", fontSize: 13 },
   sessionCard: {
-    backgroundColor: "rgba(18, 18, 18, 0.4)",
+    backgroundColor: "#0d0d0d",
     borderRadius: 16,
     padding: 16,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "#161616",
   },
   sessionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  sessionName: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  sessionDate: { color: "#666", fontSize: 11 },
-  sessionMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  sessionCheck: { color: "#800000", fontSize: 11 },
-  sessionInfo: { color: "#666", fontSize: 12 },
+  sessionName: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  sessionDate: { color: "#555", fontSize: 11, fontWeight: "500" },
+  sessionMeta: { flexDirection: "row", alignItems: "center" },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(179, 0, 0, 0.06)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: "rgba(179, 0, 0, 0.15)",
+  },
+  sessionCheck: { color: "#b30000", fontSize: 10, fontWeight: "900" },
+  sessionInfo: {
+    color: "#b30000",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
 });
