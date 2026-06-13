@@ -35,79 +35,76 @@ export default function ProgressScreen() {
 
     async function fetchExercises() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
 
-        // First get all completed session IDs for this user
-        const { data: userSessions } = await supabase
-            .from('sessions')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('status', 'completed')
+            const { data: userSessions } = await supabase
+                .from('sessions')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('status', 'completed')
 
-        if (!userSessions || userSessions.length === 0) {
-            setLoading(false)
-            return
-        }
+            if (!userSessions || userSessions.length === 0) return
 
-        const sessionIds = userSessions.map(s => s.id)
+            const sessionIds = userSessions.map(s => s.id)
 
-        // Get all sets from those sessions
-        const { data } = await supabase
-            .from('session_sets')
-            .select(`
-            weight_used,
-            session_id,
-            program_exercises!inner (
-                exercise_id,
-                exercises!inner ( id, name )
+            const { data } = await supabase
+                .from('session_sets')
+                .select(`
+                weight_used,
+                session_id,
+                program_exercises!inner (
+                    exercise_id,
+                    exercises!inner ( id, name )
+                )
+            `)
+                .in('session_id', sessionIds)
+
+            if (!data) return
+
+            const map = new Map<string, ExerciseSummary>()
+            const sessionsByExercise = new Map<string, Set<string>>()
+
+            data.forEach((row: any) => {
+                const ex = row.program_exercises?.exercises
+                if (!ex) return
+
+                const exId = ex.id
+                const weight = row.weight_used || 0
+                const sessionId = row.session_id
+
+                if (!map.has(exId)) {
+                    map.set(exId, {
+                        exercise_id: exId,
+                        exercise_name: ex.name,
+                        session_count: 0,
+                        pr_weight: 0,
+                    })
+                    sessionsByExercise.set(exId, new Set())
+                }
+
+                const entry = map.get(exId)!
+                if (weight > entry.pr_weight) entry.pr_weight = weight
+                if (sessionId) sessionsByExercise.get(exId)!.add(sessionId)
+            })
+
+            sessionsByExercise.forEach((sessions, exId) => {
+                const entry = map.get(exId)
+                if (entry) entry.session_count = sessions.size
+            })
+
+            const result = Array.from(map.values()).sort((a, b) =>
+                a.exercise_name.localeCompare(b.exercise_name)
             )
-        `)
-            .in('session_id', sessionIds)
 
-        if (!data) {
+            setExercises(result)
+            setFiltered(result)
+        } catch (e) {
+            console.error('fetchExercises error:', e)
+        } finally {
             setLoading(false)
-            return
         }
-
-        const map = new Map<string, ExerciseSummary>()
-        const sessionsByExercise = new Map<string, Set<string>>()
-
-        data.forEach((row: any) => {
-            const ex = row.program_exercises?.exercises
-            if (!ex) return
-
-            const exId = ex.id
-            const weight = row.weight_used || 0
-            const sessionId = row.session_id
-
-            if (!map.has(exId)) {
-                map.set(exId, {
-                    exercise_id: exId,
-                    exercise_name: ex.name,
-                    session_count: 0,
-                    pr_weight: 0,
-                })
-                sessionsByExercise.set(exId, new Set())
-            }
-
-            const entry = map.get(exId)!
-            if (weight > entry.pr_weight) entry.pr_weight = weight
-            if (sessionId) sessionsByExercise.get(exId)!.add(sessionId)
-        })
-
-        sessionsByExercise.forEach((sessions, exId) => {
-            const entry = map.get(exId)
-            if (entry) entry.session_count = sessions.size
-        })
-
-        const result = Array.from(map.values()).sort((a, b) =>
-            a.exercise_name.localeCompare(b.exercise_name)
-        )
-
-        setExercises(result)
-        setFiltered(result)
-        setLoading(false)
     }
     function handleSearch(text: string) {
         setSearch(text)
