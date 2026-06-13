@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -32,54 +33,14 @@ export default function HomeScreen() {
   const [completedDates, setCompletedDates] = useState<string[]>([]);
   const [currentMonthName, setCurrentMonthName] = useState("");
   const [sessionsThisMonthCount, setSessionsThisMonthCount] = useState(0);
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
 
   useEffect(() => {
     fetchProfile();
     fetchRecentSessions();
     generateCurrentMonthGrid();
   }, []);
-
-  async function fetchProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .single();
-    if (data) setDisplayName(data.display_name);
-  }
-
-  async function fetchRecentSessions() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("sessions")
-      .select("id, program_day_id, started_at, status, program_days(name)")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
-      .order("started_at", { ascending: false });
-
-    if (data) {
-      setRecentSessions(data.slice(0, 3) as unknown as RecentSession[]);
-
-      const dates = data.map(
-        (s) => new Date(s.started_at).toISOString().split("T")[0],
-      );
-      setCompletedDates(dates);
-
-      const currentYearMonth = new Date().toISOString().slice(0, 7);
-      const currentMonthSessions = dates.filter((d) =>
-        d.startsWith(currentYearMonth),
-      );
-      setSessionsThisMonthCount(currentMonthSessions.length);
-    }
-  }
-
   function generateCurrentMonthGrid() {
     const now = new Date();
     const year = now.getFullYear();
@@ -151,6 +112,60 @@ export default function HomeScreen() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
+  }
+
+  async function fetchProfile() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      setDisplayName(data?.display_name ?? "");
+    } catch (err) {
+      console.log("fetchProfile error:", err);
+    }
+  }
+
+  async function fetchRecentSessions() {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("id, program_day_id, started_at, status, program_days(name)")
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+      setRecentSessions((data as RecentSession[]) || []);
+
+      const monthsCount = (data || []).filter((s: any) => {
+        const d = new Date(s.started_at);
+        const now = new Date();
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
+      }).length;
+      setSessionsThisMonthCount(monthsCount);
+
+      const dates = (data || [])
+        .map((s: any) => s.started_at?.split("T")[0])
+        .filter(Boolean);
+      setCompletedDates(dates as string[]);
+    } catch (err) {
+      console.log("fetchRecentSessions error:", err);
+    }
   }
 
   return (
@@ -320,6 +335,83 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Recommended Templates */}
+        <Text style={styles.sectionTitle}>RECOMMENDED TEMPLATES</Text>
+
+        {[
+          {
+            id: "strength-4wk",
+            title: "4-Week Strength Builder",
+            subtitle:
+              "Progressive full-body strength program — Beginner to Intermediate",
+          },
+          {
+            id: "hypertrophy-6wk",
+            title: "6-Week Hypertrophy Focus",
+            subtitle:
+              "Upper/lower split with volume progression for muscle growth",
+          },
+          {
+            id: "conditioning-3wk",
+            title: "3-Week Conditioning Primer",
+            subtitle:
+              "Short, intense sessions to boost aerobic capacity and work capacity",
+          },
+        ].map((t) => (
+          <TouchableOpacity
+            key={t.id}
+            style={styles.templateCard}
+            activeOpacity={0.92}
+            onPress={() =>
+              router.push(
+                `/programs/create?template=${encodeURIComponent(
+                  JSON.stringify({
+                    id: t.id,
+                    name: t.title,
+                    description: t.subtitle,
+                  }),
+                )}`,
+              )
+            }
+          >
+            <LinearGradient
+              colors={["rgba(179,0,0,0.12)", "rgba(13,13,13,0.35)"]}
+              style={styles.templateGradient}
+            />
+            <View style={styles.templateInner}>
+              <View style={styles.templateLeft}>
+                <View style={styles.templateIconCircle}>
+                  <Ionicons name="barbell" size={18} color="#fff" />
+                </View>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.templateTitle}>{t.title}</Text>
+                  <Text style={styles.templateSubtitle} numberOfLines={2}>
+                    {t.subtitle}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.templateButton}
+                onPress={() =>
+                  router.push(
+                    `/programs/create?template=${encodeURIComponent(
+                      JSON.stringify({
+                        id: t.id,
+                        name: t.title,
+                        description: t.subtitle,
+                      }),
+                    )}`,
+                  )
+                }
+                activeOpacity={0.85}
+              >
+                <Text style={styles.templateButtonText}>Use</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        ))}
+
         {/* Recent Sessions List */}
         <Text style={styles.sectionTitle}>RECENT SESSIONS</Text>
 
@@ -331,7 +423,12 @@ export default function HomeScreen() {
           </View>
         ) : (
           recentSessions.map((session) => (
-            <View key={session.id} style={styles.sessionCard}>
+            <TouchableOpacity
+              key={session.id}
+              style={styles.sessionCard}
+              activeOpacity={0.8}
+              onPress={() => router.push("/history")}
+            >
               <View style={styles.sessionRow}>
                 <Text style={styles.sessionName}>
                   {session.program_days?.[0]?.name || "Workout"}
@@ -346,7 +443,7 @@ export default function HomeScreen() {
                   <Text style={styles.sessionInfo}>COMPLETED</Text>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -710,5 +807,97 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  templateCard: {
+    backgroundColor: "#0d0d0d",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#141414",
+    overflow: "hidden",
+  },
+  templateGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 16,
+  },
+  templateInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  templateLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  templateIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: "#800000",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(179,0,0,0.15)",
+  },
+  templateTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  templateSubtitle: {
+    color: "#aaa",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  templateButton: {
+    backgroundColor: "#b30000",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginLeft: 12,
+    minWidth: 92,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  templateButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: "#0d0d0d",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#141414",
+  },
+  modalTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  modalSubtitle: { color: "#aaa", marginTop: 6, fontSize: 13 },
+  modalDayRow: {
+    flexDirection: "row",
+    marginTop: 10,
+    alignItems: "flex-start",
+  },
+  modalDayTitle: { color: "#b30000", fontWeight: "800", width: 84 },
+  modalExerciseText: { color: "#ddd", fontSize: 13, marginBottom: 4 },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+    marginTop: 14,
   },
 });
