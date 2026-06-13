@@ -211,6 +211,7 @@ const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 99,
     },
     fabContainer: {
         position: 'absolute',
@@ -218,6 +219,7 @@ const styles = StyleSheet.create({
         right: 16,
         alignItems: 'flex-end',
         gap: 10,
+        zIndex: 100,
     },
     fab: {
         width: 52,

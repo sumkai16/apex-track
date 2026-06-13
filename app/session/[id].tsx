@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native'
 import { router, useLocalSearchParams } from 'expo-router'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
     Alert,
     Animated,
@@ -38,6 +39,7 @@ interface LoggedSet {
 }
 
 export default function SessionScreen() {
+
     const { id } = useLocalSearchParams<{ id: string }>()
     const [exercises, setExercises] = useState<ProgramExercise[]>([])
     const [currentIndex, setCurrentIndex] = useState(0)
@@ -48,13 +50,81 @@ export default function SessionScreen() {
     const sidebarAnim = useRef(new Animated.Value(0)).current
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
     const { unit, toDisplay, toKg, formatWeight } = useWeightUnit()
+    const [weightInputs, setWeightInputs] = useState<Record<string, string>>({})
+    const setsRef = useRef<Record<string, LoggedSet[]>>({})
+    const exercisesRef = useRef<ProgramExercise[]>([])
+    const [startedAt, setStartedAt] = useState<number | null>(null)
 
     useEffect(() => {
+        if (!id) return
         fetchSessionData()
-        timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
-        return () => { if (timerRef.current) clearInterval(timerRef.current) }
-    }, [])
+    }, [id])
+    // Keep refs in sync with state so auto-save can access latest values
+    useEffect(() => {
+        setsRef.current = sets
+    }, [sets])
 
+    useEffect(() => {
+        exercisesRef.current = exercises
+    }, [exercises])
+
+    useEffect(() => {
+        if (!startedAt) return
+        if (timerRef.current) clearInterval(timerRef.current)
+
+        // Set correct elapsed immediately, no flicker
+        setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+
+        timerRef.current = setInterval(() => {
+            setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+        }, 1000)
+        return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    }, [startedAt])
+
+
+    useFocusEffect(
+        useCallback(() => {
+            return () => {
+                // Fires when screen loses focus — auto-save current sets
+                autoSaveSets()
+            }
+        }, [])
+    )
+
+    async function autoSaveSets() {
+        const currentSets = setsRef.current
+        const currentExercises = exercisesRef.current
+        if (!currentExercises.length || !id) return
+
+        const allSets: any[] = []
+        currentExercises.forEach(pe => {
+            const peSets = currentSets[pe.id] || []
+            peSets.forEach(set => {
+                if (set.weight_used > 0 || set.reps_done > 0) {
+                    allSets.push({
+                        session_id: id,
+                        program_exercise_id: pe.id,
+                        exercise_id: pe.exercise.id,
+                        set_number: set.set_number,
+                        weight_used: set.weight_used,
+                        reps_done: set.reps_done,
+                        weight_unit: 'kg',
+                        is_pr: false,
+                    })
+                }
+            })
+        })
+
+        if (allSets.length === 0) return
+
+        // Delete existing in-progress sets for this session then re-insert
+        await supabase
+            .from('session_sets')
+            .delete()
+            .eq('session_id', id)
+
+        await supabase.from('session_sets').insert(allSets)
+    }
     function openSidebar() {
         setSidebarOpen(true)
         Animated.timing(sidebarAnim, {
@@ -88,76 +158,154 @@ export default function SessionScreen() {
     })
 
     async function fetchSessionData() {
+
         const { data: session } = await supabase
             .from('sessions')
-            .select('program_day_id')
+            .select('program_day_id, started_at')
             .eq('id', id)
             .single()
 
         if (!session) return
 
-        const { data: programExercises } = await supabase
-            .from('program_exercises')
-            .select('id, order_index, target_sets, target_reps, exercises(id, name)')
-            .eq('program_day_id', session.program_day_id)
-            .order('order_index')
+        const startMs = new Date(session.started_at).getTime()
+        setStartedAt(startMs)
+        // Fix timer
+        const [programExercisesRes, savedSetsRes, prevSessionRes] = await Promise.all([
+
+            supabase
+                .from('program_exercises')
+                .select('id, order_index, target_sets, target_reps, exercises(id, name)')
+                .eq('program_day_id', session.program_day_id)
+                .order('order_index'),
+            supabase
+                .from('session_sets')
+                .select('program_exercise_id, set_number, weight_used, reps_done, is_extra')
+                .eq('session_id', id),
+            supabase
+                .from('sessions')
+                .select('id')
+                .eq('program_day_id', session.program_day_id)
+                .eq('status', 'completed')
+                .order('started_at', { ascending: false })
+                .limit(1)
+                .single()
+        ])
+
+        const programExercises = programExercisesRes.data
+
+
 
         if (!programExercises) return
 
-        const enriched = await Promise.all(
-            programExercises.map(async (pe) => {
-                const exercise = Array.isArray(pe.exercises)
-                    ? pe.exercises[0]
-                    : pe.exercises as unknown as Exercise
-
-                const { data: prevSession } = await supabase
-                    .from('sessions')
-                    .select('id')
-                    .eq('program_day_id', session.program_day_id)
-                    .eq('status', 'completed')
-                    .order('started_at', { ascending: false })
-                    .limit(1)
-                    .single()
-
-                let previousSets: LoggedSet[] = []
-                if (prevSession) {
-                    const { data: prevSets } = await supabase
-                        .from('session_sets')
-                        .select('set_number, weight_used, reps_done')
-                        .eq('session_id', prevSession.id)
-                        .eq('program_exercise_id', pe.id)
-                        .order('set_number')
-                    if (prevSets) {
-                        previousSets = prevSets.map(s => ({ ...s, done: true }))
-                    }
-                }
-
-                return {
-                    id: pe.id,
-                    order_index: pe.order_index,
-                    target_sets: pe.target_sets,
-                    target_reps: pe.target_reps,
-                    exercise,
-                    previousSets,
+        // Build saved sets lookup
+        const savedLookup: Record<string, Record<number, { weight_used: number; reps_done: number }>> = {}
+        if (savedSetsRes.data) {
+            savedSetsRes.data.forEach(s => {
+                if (!savedLookup[s.program_exercise_id]) savedLookup[s.program_exercise_id] = {}
+                savedLookup[s.program_exercise_id][s.set_number] = {
+                    weight_used: s.weight_used,
+                    reps_done: s.reps_done,
                 }
             })
-        )
+        }
+
+        // Fetch all previous sets in one query if previous session exists
+        const prevSessionId = prevSessionRes.data?.id
+        let prevSetsLookup: Record<string, { set_number: number; weight_used: number; reps_done: number }[]> = {}
+
+        if (prevSessionId) {
+            const { data: prevSets } = await supabase
+                .from('session_sets')
+                .select('program_exercise_id, set_number, weight_used, reps_done')
+                .eq('session_id', prevSessionId)
+
+            if (prevSets) {
+                prevSets.forEach(s => {
+                    if (!prevSetsLookup[s.program_exercise_id]) prevSetsLookup[s.program_exercise_id] = []
+                    prevSetsLookup[s.program_exercise_id].push(s)
+                })
+            }
+        }
+
+        const enriched = programExercises.map(pe => {
+            const exercise = Array.isArray(pe.exercises)
+                ? pe.exercises[0]
+                : pe.exercises as unknown as Exercise
+
+            const previousSets = (prevSetsLookup[pe.id] || []).map(s => ({ ...s, done: true }))
+
+            return {
+                id: pe.id,
+                order_index: pe.order_index,
+                target_sets: pe.target_sets,
+                target_reps: pe.target_reps,
+                exercise,
+                previousSets,
+            }
+        })
 
         setExercises(enriched)
 
         const initialSets: Record<string, LoggedSet[]> = {}
         enriched.forEach(pe => {
-            initialSets[pe.id] = Array.from({ length: pe.target_sets }, (_, i) => ({
-                set_number: i + 1,
-                weight_used: pe.previousSets[i]?.weight_used || 0,
-                reps_done: pe.previousSets[i]?.reps_done || 0,
-                done: false,
-            }))
+            const savedSetsForPe = savedSetsRes.data?.filter(s => s.program_exercise_id === pe.id) || []
+            const savedBySetNumber: Record<number, any> = {}
+            savedSetsForPe.forEach(s => { savedBySetNumber[s.set_number] = s })
+
+            // Build target sets, overriding with saved data where available
+            const targetSets = Array.from({ length: pe.target_sets }, (_, i) => {
+                const saved = savedBySetNumber[i + 1]
+                return {
+                    set_number: i + 1,
+                    weight_used: saved?.weight_used ?? pe.previousSets[i]?.weight_used ?? 0,
+                    reps_done: saved?.reps_done ?? pe.previousSets[i]?.reps_done ?? 0,
+                    done: !!saved,
+                    isExtra: false,
+                }
+            })
+
+            // Append any extra sets (set_number > target_sets)
+            const extraSets = savedSetsForPe
+                .filter(s => s.set_number > pe.target_sets)
+                .sort((a, b) => a.set_number - b.set_number)
+                .map(s => ({
+                    set_number: s.set_number,
+                    weight_used: s.weight_used,
+                    reps_done: s.reps_done,
+                    done: true,
+                    isExtra: true,
+                }))
+
+            initialSets[pe.id] = [...targetSets, ...extraSets]
         })
+
         setSets(initialSets)
         setLoading(false)
-    }
 
+    }
+    async function saveSetToDb(peId: string, setIndex: number, updatedSets: Record<string, LoggedSet[]>) {
+        const set = updatedSets[peId]?.[setIndex]
+        const exercise = exercises.find(e => e.id === peId)
+        if (!set || !exercise || !id) return
+        if (set.weight_used === 0 && set.reps_done === 0) return
+
+        const { error } = await supabase
+            .from('session_sets')
+            .upsert({
+                session_id: id,
+                program_exercise_id: peId,
+                exercise_id: exercise.exercise.id,
+                set_number: set.set_number,
+                weight_used: set.weight_used,
+                reps_done: set.reps_done,
+                weight_unit: 'kg',
+                is_pr: false,
+                is_extra: set.isExtra ?? false,
+            }, {
+                onConflict: 'session_id,program_exercise_id,set_number'
+            })
+
+    }
     function formatTime(seconds: number) {
         const h = Math.floor(seconds / 3600)
         const m = Math.floor((seconds % 3600) / 60)
@@ -183,7 +331,9 @@ export default function SessionScreen() {
         setSets(prev => {
             const updated = [...(prev[peId] || [])]
             updated[setIndex] = { ...updated[setIndex], [field]: parseFloat(value) || 0 }
-            return { ...prev, [peId]: updated }
+            const newSets = { ...prev, [peId]: updated }
+            saveSetToDb(peId, setIndex, newSets)
+            return newSets
         })
     }
 
@@ -203,7 +353,9 @@ export default function SessionScreen() {
         setSets(prev => {
             const updated = [...(prev[peId] || [])]
             updated[setIndex] = { ...updated[setIndex], done: !updated[setIndex].done }
-            return { ...prev, [peId]: updated }
+            const newSets = { ...prev, [peId]: updated }
+            saveSetToDb(peId, setIndex, newSets)
+            return newSets
         })
     }
     function addSet(peId: string) {
@@ -436,8 +588,27 @@ export default function SessionScreen() {
                                 </Text>
                                 <TextInput
                                     style={[styles.setInput, isCurrentSet && styles.setInputActive]}
-                                    value={set.weight_used > 0 ? String(toDisplay(set.weight_used)) : ''}
-                                    onChangeText={v => updateSet(currentExercise.id, i, 'weight_used', String(toKg(parseFloat(v) || 0)))}
+                                    value={weightInputs[`${currentExercise.id}-${i}`] ?? (set.weight_used > 0 ? String(toDisplay(set.weight_used)) : '')}
+                                    onChangeText={v => {
+                                        // Store raw string while typing
+                                        setWeightInputs(prev => ({ ...prev, [`${currentExercise.id}-${i}`]: v }))
+                                        // Only convert and save if it's a valid number
+                                        const num = parseFloat(v)
+                                        if (!isNaN(num)) {
+                                            updateSet(currentExercise.id, i, 'weight_used', String(toKg(num)))
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        // Clean up raw input on blur — format it properly
+                                        const key = `${currentExercise.id}-${i}`
+                                        const num = parseFloat(weightInputs[key] ?? '')
+                                        if (!isNaN(num)) {
+                                            setWeightInputs(prev => ({ ...prev, [key]: String(toDisplay(toKg(num))) }))
+                                        } else {
+                                            setWeightInputs(prev => ({ ...prev, [key]: '' }))
+                                            updateSet(currentExercise.id, i, 'weight_used', '0')
+                                        }
+                                    }}
                                     keyboardType="numeric"
                                     placeholder="0"
                                     placeholderTextColor="#444"

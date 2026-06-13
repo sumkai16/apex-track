@@ -1,16 +1,13 @@
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     ActivityIndicator,
     Alert,
-    KeyboardAvoidingView,
-    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native'
@@ -22,27 +19,14 @@ interface Question {
     question: string
     field_key: string
     suggestions: string[]
-    acknowledgment: string
-}
-
-interface Message {
-    role: 'ai' | 'user'
-    text: string
-    isTyping?: boolean
 }
 
 export default function GenerateProgramScreen() {
     const [questions, setQuestions] = useState<Question[]>([])
-    const [currentIndex, setCurrentIndex] = useState(0)
-    const [messages, setMessages] = useState<Message[]>([])
     const [answers, setAnswers] = useState<Record<string, string>>({})
-    const [inputText, setInputText] = useState('')
-    const [generating, setGenerating] = useState(false)
-    const [loading, setLoading] = useState(true)
-    const [isTyping, setIsTyping] = useState(false)
     const [displayName, setDisplayName] = useState('')
-    const [locked, setLocked] = useState(false)
-    const scrollRef = useRef<ScrollView>(null)
+    const [loading, setLoading] = useState(true)
+    const [generating, setGenerating] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -50,7 +34,6 @@ export default function GenerateProgramScreen() {
 
     async function fetchData() {
         const { data: { user } } = await supabase.auth.getUser()
-        let name = ''
         if (user) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -58,8 +41,7 @@ export default function GenerateProgramScreen() {
                 .eq('id', user.id)
                 .single()
             if (profile?.display_name) {
-                name = profile.display_name.split(' ')[0] // first name only
-                setDisplayName(name)
+                setDisplayName(profile.display_name.split(' ')[0])
             }
         }
 
@@ -69,78 +51,24 @@ export default function GenerateProgramScreen() {
             .eq('is_active', true)
             .order('order_index')
 
-        if (data && data.length > 0) {
-            setQuestions(data)
-            const greeting = name
-                ? `Hey ${name}! I'm your AI coach. Let's build you a personalized training program. ${data[0].question}`
-                : `Hey! I'm your AI coach. Let's build you a personalized training program. ${data[0].question}`
-            setMessages([{ role: 'ai', text: greeting }])
-        }
+        if (data) setQuestions(data)
         setLoading(false)
     }
 
-    function scrollToBottom() {
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)
+    function selectAnswer(fieldKey: string, answer: string) {
+        setAnswers(prev => ({ ...prev, [fieldKey]: answer }))
     }
 
-    async function handleAnswer(answer: string) {
-        if (locked) return
-        const current = questions[currentIndex]
-        if (!current) return
+    function isComplete() {
+        return questions.every(q => answers[q.field_key])
+    }
 
-        setLocked(true)
-        setInputText('')
-
-        const newAnswers = { ...answers, [current.field_key]: answer }
-        setAnswers(newAnswers)
-
-        // Add user message
-        setMessages(prev => [...prev, { role: 'user', text: answer }])
-        scrollToBottom()
-
-        // Show typing indicator
-        await delay(400)
-        setIsTyping(true)
-        scrollToBottom()
-
-        // Build acknowledgment
-        const ack = current.acknowledgment?.replace('{answer}', answer) || `Got it — "${answer}".`
-
-        const nextIndex = currentIndex + 1
-        let aiResponse = ''
-
-        if (nextIndex < questions.length) {
-            aiResponse = `${ack} ${questions[nextIndex].question}`
-        } else {
-            aiResponse = `${ack} Perfect — I have everything I need. Give me a moment while I build your personalized program! 💪`
+    async function handleGenerate() {
+        if (!isComplete()) {
+            Alert.alert('Incomplete', 'Please answer all questions before generating.')
+            return
         }
 
-        // Simulate typing delay based on message length
-        await delay(Math.min(800 + aiResponse.length * 10, 2000))
-        setIsTyping(false)
-
-        setMessages(prev => [...prev, { role: 'ai', text: aiResponse }])
-        setCurrentIndex(nextIndex)
-        scrollToBottom()
-
-        if (nextIndex >= questions.length) {
-            await delay(600)
-            generateProgram(newAnswers)
-        } else {
-            setLocked(false)
-        }
-    }
-
-    function delay(ms: number) {
-        return new Promise(resolve => setTimeout(resolve, ms))
-    }
-
-    function handleSend() {
-        if (!inputText.trim() || locked) return
-        handleAnswer(inputText.trim())
-    }
-
-    async function generateProgram(finalAnswers: Record<string, string>) {
         setGenerating(true)
 
         try {
@@ -159,10 +87,10 @@ export default function GenerateProgramScreen() {
                 .join('\n')
 
             const answerSummary = questions
-                .map(q => `${q.field_key}: ${finalAnswers[q.field_key] || 'not specified'}`)
+                .map(q => `${q.field_key}: ${answers[q.field_key]}`)
                 .join('\n')
 
-            const daysMatch = finalAnswers['days_per_week']?.match(/\d+/)
+            const daysMatch = answers['days_per_week']?.match(/\d+/)
             const daysPerWeek = daysMatch ? parseInt(daysMatch[0]) : 4
 
             const prompt = `You are a certified strength and conditioning coach with expertise in evidence-based training. Generate a personalized training program based on the following user profile:
@@ -215,7 +143,6 @@ Rules:
 
             const data = await response.json()
             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-
             if (!rawText) throw new Error('No response from AI')
 
             const clean = rawText.replace(/```json|```/g, '').trim()
@@ -225,8 +152,9 @@ Rules:
 
         } catch (err) {
             console.log('Generate error:', err)
-            setGenerating(false)
             Alert.alert('Error', 'Failed to generate program. Please try again.')
+        } finally {
+            setGenerating(false)
         }
     }
 
@@ -291,15 +219,6 @@ Rules:
             await supabase.from('program_exercises').insert(exercisesPayload)
         }
 
-        setGenerating(false)
-
-        setMessages(prev => [...prev, {
-            role: 'ai',
-            text: `🎉 Your program "${parsed.program_name}" is ready! Head to Programs to check it out and set it as active.`
-        }])
-        scrollToBottom()
-
-        await delay(1500)
         Alert.alert(
             '🎉 Program Created!',
             `"${parsed.program_name}" has been added to your programs.`,
@@ -324,8 +243,6 @@ Rules:
         return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][index]
     }
 
-    const isComplete = currentIndex >= questions.length
-
     if (loading) {
         return (
             <View style={styles.centered}>
@@ -335,131 +252,77 @@ Rules:
     }
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             <View style={styles.topBar}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#fff" />
                 </TouchableOpacity>
-                <View style={styles.topBarCenter}>
-                    <Ionicons name="sparkles" size={14} color="#800000" />
-                    <Text style={styles.topBarTitle}>AI Program Generator</Text>
-                </View>
+                <Text style={styles.topBarTitle}>AI Program Generator</Text>
                 <View style={{ width: 36 }} />
             </View>
 
-            <ScrollView
-                ref={scrollRef}
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-            >
-                {messages.map((msg, i) => (
-                    <View
-                        key={i}
-                        style={[
-                            styles.bubbleWrapper,
-                            msg.role === 'user' ? styles.bubbleWrapperUser : styles.bubbleWrapperAI,
-                        ]}
-                    >
-                        {msg.role === 'ai' && (
-                            <View style={styles.aiAvatar}>
-                                <Ionicons name="sparkles" size={12} color="#800000" />
-                            </View>
-                        )}
-                        <View style={[
-                            styles.bubble,
-                            msg.role === 'user' ? styles.bubbleUser : styles.bubbleAI,
-                        ]}>
-                            <Text style={[
-                                styles.bubbleText,
-                                msg.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAI,
-                            ]}>
-                                {msg.text}
-                            </Text>
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.header}>
+                    <Ionicons name="sparkles" size={20} color="#800000" />
+                    <Text style={styles.headerText}>
+                        {displayName ? `Let's build your program, ${displayName}.` : "Let's build your program."}
+                    </Text>
+                </View>
+                <Text style={styles.headerSub}>Answer the questions below and we'll generate a science-based training program tailored to you.</Text>
+
+                {questions.map((q, qi) => (
+                    <View key={q.id} style={styles.questionBlock}>
+                        <Text style={styles.questionNumber}>0{qi + 1}</Text>
+                        <Text style={styles.questionText}>{q.question}</Text>
+                        <View style={styles.chipsRow}>
+                            {q.suggestions.map((s, si) => (
+                                <TouchableOpacity
+                                    key={si}
+                                    style={[
+                                        styles.chip,
+                                        answers[q.field_key] === s && styles.chipSelected
+                                    ]}
+                                    onPress={() => selectAnswer(q.field_key, s)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={[
+                                        styles.chipText,
+                                        answers[q.field_key] === s && styles.chipTextSelected
+                                    ]}>
+                                        {s}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
                     </View>
                 ))}
 
-                {isTyping && (
-                    <View style={styles.bubbleWrapperAI}>
-                        <View style={styles.aiAvatar}>
-                            <Ionicons name="sparkles" size={12} color="#800000" />
+                <TouchableOpacity
+                    style={[styles.generateBtn, (!isComplete() || generating) && styles.generateBtnDisabled]}
+                    onPress={handleGenerate}
+                    disabled={!isComplete() || generating}
+                    activeOpacity={0.85}
+                >
+                    {generating ? (
+                        <View style={styles.btnRow}>
+                            <ActivityIndicator color="#fff" size="small" />
+                            <Text style={styles.generateBtnText}>Generating your program...</Text>
                         </View>
-                        <View style={[styles.bubble, styles.bubbleAI, styles.typingBubble]}>
-                            <Text style={styles.typingDots}>● ● ●</Text>
+                    ) : (
+                        <View style={styles.btnRow}>
+                            <Ionicons name="sparkles" size={18} color="#fff" />
+                            <Text style={styles.generateBtnText}>Generate Program</Text>
                         </View>
-                    </View>
-                )}
+                    )}
+                </TouchableOpacity>
 
-                {generating && (
-                    <View style={styles.bubbleWrapperAI}>
-                        <View style={styles.aiAvatar}>
-                            <Ionicons name="sparkles" size={12} color="#800000" />
-                        </View>
-                        <View style={[styles.bubble, styles.bubbleAI]}>
-                            <ActivityIndicator color="#800000" size="small" />
-                            <Text style={[styles.bubbleText, styles.bubbleTextAI, { marginLeft: 8 }]}>
-                                Building your program...
-                            </Text>
-                        </View>
-                    </View>
-                )}
+                <Text style={styles.disclaimer}>
+                    Program is generated based on evidence-based training principles. Always consult a professional before starting a new training regimen.
+                </Text>
             </ScrollView>
-
-            {!isComplete && !generating && (
-                <View style={styles.inputArea}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.chipsRow}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {questions[currentIndex]?.suggestions.map((s, i) => (
-                            <TouchableOpacity
-                                key={i}
-                                style={styles.chip}
-                                onPress={() => handleSuggestion(s)}
-                                activeOpacity={0.8}
-                                disabled={locked}
-                            >
-                                <Text style={styles.chipText}>{s}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-
-                    <View style={styles.textRow}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Or type your own answer..."
-                            placeholderTextColor="#333"
-                            value={inputText}
-                            onChangeText={setInputText}
-                            onSubmitEditing={handleSend}
-                            returnKeyType="send"
-                            editable={!locked}
-                        />
-                        <TouchableOpacity
-                            style={[styles.sendBtn, (!inputText.trim() || locked) && styles.sendBtnDisabled]}
-                            onPress={handleSend}
-                            disabled={!inputText.trim() || locked}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="arrow-up" size={18} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-        </KeyboardAvoidingView>
+        </View>
     )
-
-    function handleSuggestion(suggestion: string) {
-        handleAnswer(suggestion)
-    }
 }
 
 const styles = StyleSheet.create({
@@ -472,10 +335,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 56,
         paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#1a1a1a',
     },
-    topBarCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     backBtn: {
         width: 36,
         height: 36,
@@ -484,97 +344,56 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    topBarTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
-    scroll: {
-        paddingHorizontal: 16,
-        paddingTop: 20,
-        paddingBottom: 20,
-        gap: 12,
-        flexGrow: 1,
-    },
-    bubbleWrapper: {
+    topBarTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
+    header: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
+        alignItems: 'center',
         gap: 8,
-        marginBottom: 4,
+        marginBottom: 8,
+        marginTop: 8,
     },
-    bubbleWrapperAI: { alignSelf: 'flex-start', maxWidth: '85%' },
-    bubbleWrapperUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse', maxWidth: '85%' },
-    aiAvatar: {
-        width: 26,
-        height: 26,
-        backgroundColor: 'rgba(128,0,0,0.15)',
-        borderRadius: 13,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(128,0,0,0.3)',
-        flexShrink: 0,
+    headerText: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1 },
+    headerSub: { color: '#555', fontSize: 13, lineHeight: 19, marginBottom: 28 },
+    questionBlock: { marginBottom: 28 },
+    questionNumber: {
+        color: '#800000',
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
+        marginBottom: 6,
     },
-    bubble: {
-        borderRadius: 16,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexShrink: 1,
-    },
-    bubbleAI: {
-        backgroundColor: '#111',
-        borderWidth: 1,
-        borderColor: '#1a1a1a',
-        borderBottomLeftRadius: 4,
-    },
-    bubbleUser: {
-        backgroundColor: '#800000',
-        borderBottomRightRadius: 4,
-    },
-    bubbleText: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
-    bubbleTextAI: { color: '#ccc' },
-    bubbleTextUser: { color: '#fff' },
-    typingBubble: { paddingVertical: 12 },
-    typingDots: { color: '#555', fontSize: 10, letterSpacing: 4 },
-    inputArea: {
-        borderTopWidth: 1,
-        borderTopColor: '#1a1a1a',
-        paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-        paddingTop: 12,
-        backgroundColor: '#050505',
-    },
-    chipsRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 10 },
+    questionText: { color: '#fff', fontSize: 15, fontWeight: '600', marginBottom: 12 },
+    chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: {
-        backgroundColor: '#111',
-        borderWidth: 1,
-        borderColor: '#800000',
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    chipText: { color: '#fff', fontSize: 13 },
-    textRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        gap: 10,
-    },
-    input: {
-        flex: 1,
-        backgroundColor: '#111',
-        borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        color: '#fff',
-        fontSize: 14,
+        borderRadius: 10,
+        backgroundColor: '#111',
         borderWidth: 1,
         borderColor: '#1a1a1a',
     },
-    sendBtn: {
-        width: 38,
-        height: 38,
-        backgroundColor: '#800000',
-        borderRadius: 19,
-        alignItems: 'center',
-        justifyContent: 'center',
+    chipSelected: {
+        backgroundColor: 'rgba(128,0,0,0.15)',
+        borderColor: '#800000',
     },
-    sendBtnDisabled: { opacity: 0.4 },
+    chipText: { color: '#555', fontSize: 13 },
+    chipTextSelected: { color: '#fff', fontWeight: '600' },
+    generateBtn: {
+        backgroundColor: '#800000',
+        borderRadius: 14,
+        paddingVertical: 16,
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 16,
+    },
+    generateBtnDisabled: { opacity: 0.4 },
+    generateBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    btnRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    disclaimer: {
+        color: '#333',
+        fontSize: 11,
+        lineHeight: 17,
+        textAlign: 'center',
+    },
 })
