@@ -1,10 +1,13 @@
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -34,6 +37,35 @@ export default function ProgramsScreen() {
   const [showOnlyActive, setShowOnlyActive] = useState(false);
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [volumeFilter, setVolumeFilter] = useState<VolumeFilterType>("ALL");
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const TEMPLATE_EXERCISES: Record<string, string[]> = {
+    // map to exercise names stored in the DB
+    "strength-4wk": ["Squat", "Bench Press", "Deadlift", "Pull-up", "Plank"],
+    "hypertrophy-6wk": [
+      "Incline Bench",
+      "Romanian Deadlift",
+      "Barbell Row",
+      "Leg Press",
+      "Bicep Curl",
+    ],
+    "conditioning-3wk": [
+      "Sprint Intervals",
+      "Kettlebell Swing",
+      "Bodyweight Circuit",
+    ],
+  };
+
+  const [templateExercises, setTemplateExercises] = useState<
+    {
+      id?: string;
+      name: string;
+      icon?: string | null;
+      estimated_duration?: number | null;
+    }[]
+  >([]);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const animValuesRef = useRef<Animated.Value[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -158,6 +190,223 @@ export default function ProgramsScreen() {
             <Ionicons name="add" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* Recommended Templates (moved from Home) */}
+        <Text style={styles.sectionTitle}>RECOMMENDED TEMPLATES</Text>
+
+        {[
+          {
+            id: "strength-4wk",
+            title: "4-Week Strength Builder",
+            subtitle:
+              "Progressive full-body strength program — Beginner to Intermediate",
+          },
+          {
+            id: "hypertrophy-6wk",
+            title: "6-Week Hypertrophy Focus",
+            subtitle:
+              "Upper/lower split with volume progression for muscle growth",
+          },
+          {
+            id: "conditioning-3wk",
+            title: "3-Week Conditioning Primer",
+            subtitle:
+              "Short, intense sessions to boost aerobic capacity and work capacity",
+          },
+        ].map((t) => (
+          <TouchableOpacity
+            key={t.id}
+            style={styles.templateCard}
+            activeOpacity={0.92}
+            onPress={async () => {
+              setSelectedTemplate(t);
+              setTemplateModalVisible(true);
+              const names = TEMPLATE_EXERCISES[t.id] || [];
+              setLoadingTemplate(true);
+              try {
+                const { data, error } = await supabase
+                  .from("exercises")
+                  .select("id, name, icon, estimated_duration")
+                  .in("name", names);
+                if (error) throw error;
+
+                // Preserve order from names
+                const ordered = names.map(
+                  (n) => data?.find((d: any) => d.name === n) || { name: n },
+                );
+                setTemplateExercises(ordered);
+
+                // prepare animated values for each row
+                animValuesRef.current = ordered.map(
+                  () => new Animated.Value(20),
+                );
+                // run entry animation
+                Animated.stagger(
+                  80,
+                  animValuesRef.current.map((av) =>
+                    Animated.timing(av, {
+                      toValue: 0,
+                      duration: 300,
+                      useNativeDriver: true,
+                    }),
+                  ),
+                ).start();
+              } catch (err) {
+                setTemplateExercises(names.map((n) => ({ name: n })));
+                animValuesRef.current = names.map(() => new Animated.Value(0));
+              } finally {
+                setLoadingTemplate(false);
+              }
+            }}
+          >
+            <LinearGradient
+              colors={["rgba(179,0,0,0.12)", "rgba(13,13,13,0.35)"]}
+              style={styles.templateGradient}
+            />
+            <View style={styles.templateInner}>
+              <View style={styles.templateLeft}>
+                <View style={styles.templateIconCircle}>
+                  <Ionicons name="barbell" size={18} color="#fff" />
+                </View>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.templateTitle}>{t.title}</Text>
+                  <Text style={styles.templateSubtitle} numberOfLines={2}>
+                    {t.subtitle}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.templateButton}
+                onPress={() =>
+                  router.push(
+                    `/programs/create?template=${encodeURIComponent(
+                      JSON.stringify({
+                        id: t.id,
+                        name: t.title,
+                        description: t.subtitle,
+                      }),
+                    )}`,
+                  )
+                }
+                activeOpacity={0.85}
+              >
+                <Text style={styles.templateButtonText}>Use</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {/* Template Preview Modal */}
+        <Modal
+          visible={templateModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setTemplateModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{selectedTemplate?.title}</Text>
+              <Text style={styles.modalSubtitle} numberOfLines={2}>
+                {selectedTemplate?.subtitle}
+              </Text>
+
+              <View style={{ marginTop: 12 }}>
+                {loadingTemplate ? (
+                  <ActivityIndicator color="#800000" />
+                ) : (
+                  templateExercises.map((ex, i) => {
+                    const av =
+                      animValuesRef.current[i] || new Animated.Value(0);
+                    return (
+                      <Animated.View
+                        key={i}
+                        style={[
+                          styles.modalExerciseRow,
+                          {
+                            transform: [{ translateY: av }],
+                            opacity: av.interpolate({
+                              inputRange: [0, 20],
+                              outputRange: [1, 0],
+                            }),
+                          },
+                        ]}
+                      >
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 12,
+                          }}
+                        >
+                          <View style={{ width: 36, alignItems: "center" }}>
+                            <Ionicons
+                              name={(ex.icon as any) || "fitness-outline"}
+                              size={18}
+                              color="#fff"
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.modalExerciseName}>
+                              {ex.name}
+                            </Text>
+                          </View>
+                          <View>
+                            <Text style={{ color: "#444", fontSize: 12 }}>
+                              {ex.estimated_duration
+                                ? `${ex.estimated_duration} min`
+                                : "10 min"}
+                            </Text>
+                          </View>
+                        </View>
+                      </Animated.View>
+                    );
+                  })
+                )}
+              </View>
+
+              {/* Estimated session duration */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: "#555", fontSize: 12 }}>
+                  Est. duration:{" "}
+                  {templateExercises.reduce(
+                    (sum, e) => sum + (e.estimated_duration || 10),
+                    0,
+                  )}{" "}
+                  minutes
+                </Text>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.templateButton, { flex: 1, marginRight: 8 }]}
+                  onPress={() => {
+                    if (!selectedTemplate) return;
+                    setTemplateModalVisible(false);
+                    router.push(
+                      `/programs/create?template=${encodeURIComponent(
+                        JSON.stringify({
+                          id: selectedTemplate.id,
+                          name: selectedTemplate.title,
+                          description: selectedTemplate.subtitle,
+                        }),
+                      )}`,
+                    );
+                  }}
+                >
+                  <Text style={styles.templateButtonText}>Go for it</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.closeButton, { flex: 1 }]}
+                  onPress={() => setTemplateModalVisible(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {programs.length > 0 && (
           <View style={styles.filterSection}>
@@ -645,4 +894,110 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 1,
   },
+  sectionTitle: {
+    color: "#444",
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: 14,
+    fontWeight: "700",
+  },
+  templateCard: {
+    backgroundColor: "#0d0d0d",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#141414",
+    overflow: "hidden",
+  },
+  templateGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 16,
+  },
+  templateInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  templateLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  templateIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: "#800000",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(179,0,0,0.15)",
+  },
+  templateTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  templateSubtitle: {
+    color: "#aaa",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  templateButton: {
+    backgroundColor: "#b30000",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginLeft: 12,
+    minWidth: 92,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  templateButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    backgroundColor: "#0d0d0d",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#141414",
+  },
+  modalTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  modalSubtitle: { color: "#aaa", marginTop: 6, fontSize: 13 },
+  modalExerciseRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#111",
+  },
+  modalExerciseName: { color: "#ddd", fontSize: 13 },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 14,
+  },
+  closeButton: {
+    backgroundColor: "#111",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeButtonText: { color: "#fff", fontSize: 13 },
 });

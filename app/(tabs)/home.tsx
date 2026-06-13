@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -335,82 +334,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Recommended Templates */}
-        <Text style={styles.sectionTitle}>RECOMMENDED TEMPLATES</Text>
-
-        {[
-          {
-            id: "strength-4wk",
-            title: "4-Week Strength Builder",
-            subtitle:
-              "Progressive full-body strength program — Beginner to Intermediate",
-          },
-          {
-            id: "hypertrophy-6wk",
-            title: "6-Week Hypertrophy Focus",
-            subtitle:
-              "Upper/lower split with volume progression for muscle growth",
-          },
-          {
-            id: "conditioning-3wk",
-            title: "3-Week Conditioning Primer",
-            subtitle:
-              "Short, intense sessions to boost aerobic capacity and work capacity",
-          },
-        ].map((t) => (
-          <TouchableOpacity
-            key={t.id}
-            style={styles.templateCard}
-            activeOpacity={0.92}
-            onPress={() =>
-              router.push(
-                `/programs/create?template=${encodeURIComponent(
-                  JSON.stringify({
-                    id: t.id,
-                    name: t.title,
-                    description: t.subtitle,
-                  }),
-                )}`,
-              )
-            }
-          >
-            <LinearGradient
-              colors={["rgba(179,0,0,0.12)", "rgba(13,13,13,0.35)"]}
-              style={styles.templateGradient}
-            />
-            <View style={styles.templateInner}>
-              <View style={styles.templateLeft}>
-                <View style={styles.templateIconCircle}>
-                  <Ionicons name="barbell" size={18} color="#fff" />
-                </View>
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.templateTitle}>{t.title}</Text>
-                  <Text style={styles.templateSubtitle} numberOfLines={2}>
-                    {t.subtitle}
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.templateButton}
-                onPress={() =>
-                  router.push(
-                    `/programs/create?template=${encodeURIComponent(
-                      JSON.stringify({
-                        id: t.id,
-                        name: t.title,
-                        description: t.subtitle,
-                      }),
-                    )}`,
-                  )
-                }
-                activeOpacity={0.85}
-              >
-                <Text style={styles.templateButtonText}>Use</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {/* Recommended Templates removed from Home (moved to Programs) */}
 
         {/* Recent Sessions List */}
         <Text style={styles.sectionTitle}>RECENT SESSIONS</Text>
@@ -427,7 +351,7 @@ export default function HomeScreen() {
               key={session.id}
               style={styles.sessionCard}
               activeOpacity={0.8}
-              onPress={() => router.push("/history")}
+              onPress={() => router.push(`/session/${session.id}`)}
             >
               <View style={styles.sessionRow}>
                 <Text style={styles.sessionName}>
