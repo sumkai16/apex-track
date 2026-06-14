@@ -1,168 +1,142 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Dimensions,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
-import { supabase } from "../../lib/supabase";
-import { useWeightUnit } from "../../lib/WeightUnitContext";
-const RANGES = [
-  { label: "1M", months: 1 },
-  { label: "3M", months: 3 },
-  { label: "6M", months: 6 },
-  { label: "All", months: 0 },
-];
+import { router, useLocalSearchParams } from 'expo-router'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Circle, Path, Svg } from 'react-native-svg'
+import { supabase } from '../../lib/supabase'
+import { useWeightUnit } from '../../lib/WeightUnitContext'
+
 interface SetData {
-  session_id: string;
-  session_date: string;
-  weight_used: number;
-  reps_done: number;
+  session_id: string
+  session_date: string
+  weight_used: number
+  reps_done: number
 }
 
 interface SessionPoint {
-  date: string;
-  maxWeight: number;
-  avgReps: number;
-  setCount: number;
-  rawDate: string;
+  date: string
+  rawDate: string
+  maxWeight: number
+  avgReps: number
+  setCount: number
 }
 
+const RANGES = [
+  { label: '1M', months: 1 },
+  { label: '3M', months: 3 },
+  { label: '6M', months: 6 },
+  { label: 'All', months: 0 },
+]
+
 export default function ExerciseDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [exerciseName, setExerciseName] = useState("");
-  const [allSets, setAllSets] = useState<SetData[]>([]);
-  const [selectedRange, setSelectedRange] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const { formatWeight, toDisplay, unit } = useWeightUnit();
+  const { id } = useLocalSearchParams<{ id: string }>()
+  const [exerciseName, setExerciseName] = useState('')
+  const [allSets, setAllSets] = useState<SetData[]>([])
+  const [selectedRange, setSelectedRange] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const { formatWeight, toDisplay, unit } = useWeightUnit()
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!id) return
+    fetchData()
+  }, [id])
 
   async function fetchData() {
-    setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const { data: exData } = await supabase
-      .from("exercises")
-      .select("name")
-      .eq("id", id)
-      .single();
+      const { data: exData } = await supabase
+        .from('exercises')
+        .select('name')
+        .eq('id', id)
+        .single()
 
-    if (exData) setExerciseName(exData.name);
+      if (exData) setExerciseName(exData.name)
 
-    // Get completed sessions for this user
-    const { data: userSessions } = await supabase
-      .from("sessions")
-      .select("id, started_at")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
-      .order("started_at", { ascending: true });
+      const { data: userSessions } = await supabase
+        .from('sessions')
+        .select('id, started_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('started_at', { ascending: true })
 
-    if (!userSessions || userSessions.length === 0) {
-      setLoading(false);
-      return;
+      if (!userSessions || userSessions.length === 0) return
+
+      const sessionIds = userSessions.map(s => s.id)
+      const sessionDateMap = new Map(userSessions.map(s => [s.id, s.started_at]))
+
+      const { data: peData } = await supabase
+        .from('program_exercises')
+        .select('id')
+        .eq('exercise_id', id)
+
+      if (!peData || peData.length === 0) return
+
+      const peIds = peData.map(pe => pe.id)
+
+      const { data } = await supabase
+        .from('session_sets')
+        .select('session_id, weight_used, reps_done')
+        .in('session_id', sessionIds)
+        .in('program_exercise_id', peIds)
+        .order('session_id')
+
+      if (data) {
+        const sets: SetData[] = data.map((row: any) => ({
+          session_id: row.session_id,
+          session_date: sessionDateMap.get(row.session_id) || '',
+          weight_used: row.weight_used || 0,
+          reps_done: row.reps_done || 0,
+        }))
+        setAllSets(sets)
+      }
+    } catch (e) {
+      console.error('ExerciseDetailScreen error:', e)
+    } finally {
+      setLoading(false)
     }
-
-    const sessionIds = userSessions.map((s) => s.id);
-    const sessionDateMap = new Map(
-      userSessions.map((s) => [s.id, s.started_at]),
-    );
-
-    // Get program_exercise IDs for this exercise
-    const { data: peData } = await supabase
-      .from("program_exercises")
-      .select("id")
-      .eq("exercise_id", id);
-
-    if (!peData || peData.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const peIds = peData.map((pe) => pe.id);
-
-    // Get sets matching both
-    const { data } = await supabase
-      .from("session_sets")
-      .select("session_id, weight_used, reps_done")
-      .in("session_id", sessionIds)
-      .in("program_exercise_id", peIds)
-      .order("session_id");
-
-    if (data) {
-      const sets: SetData[] = data.map((row: any) => ({
-        session_id: row.session_id,
-        session_date: sessionDateMap.get(row.session_id) || "",
-        weight_used: row.weight_used || 0,
-        reps_done: row.reps_done || 0,
-      }));
-      setAllSets(sets);
-    }
-
-    setLoading(false);
   }
 
   function getFilteredPoints(): SessionPoint[] {
-    const range = RANGES[selectedRange];
+    const range = RANGES[selectedRange]
     const cutoff =
       range.months === 0
         ? new Date(0)
-        : new Date(Date.now() - range.months * 30 * 24 * 60 * 60 * 1000);
+        : new Date(Date.now() - range.months * 30 * 24 * 60 * 60 * 1000)
 
-    const filtered = allSets.filter((s) => new Date(s.session_date) >= cutoff);
+    const filtered = allSets.filter(s => new Date(s.session_date) >= cutoff)
 
-    const sessionMap = new Map<string, SetData[]>();
-    filtered.forEach((s) => {
-      if (!sessionMap.has(s.session_id)) sessionMap.set(s.session_id, []);
-      sessionMap.get(s.session_id)!.push(s);
-    });
+    const sessionMap = new Map<string, SetData[]>()
+    filtered.forEach(s => {
+      if (!sessionMap.has(s.session_id)) sessionMap.set(s.session_id, [])
+      sessionMap.get(s.session_id)!.push(s)
+    })
 
     return Array.from(sessionMap.entries())
       .map(([, sets]) => {
-        const date = new Date(sets[0].session_date);
-        const label = date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-        const maxWeight = Math.max(...sets.map((s) => s.weight_used));
-        const avgReps = Math.round(
-          sets.reduce((a, s) => a + s.reps_done, 0) / sets.length,
-        );
+        const date = new Date(sets[0].session_date)
+        const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        const maxWeight = Math.max(...sets.map(s => s.weight_used))
+        const avgReps = Math.round(sets.reduce((a, s) => a + s.reps_done, 0) / sets.length)
         return {
           date: label,
           maxWeight,
           avgReps,
           setCount: sets.length,
           rawDate: sets[0].session_date,
-        };
+        }
       })
-      .sort(
-        (a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime(),
-      );
+      .sort((a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime())
   }
 
   function getStats() {
-    if (allSets.length === 0)
-      return { pr: 0, sessions: 0, avgReps: 0, avgWeight: 0 };
-    const sessionIds = new Set(allSets.map((s) => s.session_id));
-    const pr = Math.max(...allSets.map((s) => s.weight_used));
-    const avgReps = Math.round(
-      allSets.reduce((a, s) => a + s.reps_done, 0) / allSets.length,
-    );
-    const avgWeight = Math.round(
-      allSets.reduce((a, s) => a + s.weight_used, 0) / allSets.length,
-    );
-    return { pr, sessions: sessionIds.size, avgReps, avgWeight };
+    if (allSets.length === 0) return { pr: 0, sessions: 0, avgReps: 0, avgWeight: 0 }
+    const sessionIds = new Set(allSets.map(s => s.session_id))
+    const pr = Math.max(...allSets.map(s => s.weight_used))
+    const avgReps = Math.round(allSets.reduce((a, s) => a + s.reps_done, 0) / allSets.length)
+    const avgWeight = Math.round(allSets.reduce((a, s) => a + s.weight_used, 0) / allSets.length)
+    return { pr, sessions: sessionIds.size, avgReps, avgWeight }
   }
 
   if (loading) {
@@ -170,40 +144,35 @@ export default function ExerciseDetailScreen() {
       <View style={styles.centered}>
         <ActivityIndicator color="#800000" />
       </View>
-    );
+    )
   }
 
-  const points = getFilteredPoints();
-  const stats = getStats();
-  const chartWidth = Dimensions.get("window").width - 64;
-  const chartHeight = 140;
-  const maxW = Math.max(...points.map((p) => p.maxWeight), 1);
-  const minW = Math.max(0, Math.min(...points.map((p) => p.maxWeight)) - 10);
-  const range = maxW - minW || 1;
+  const points = getFilteredPoints()
+  const stats = getStats()
+  const chartWidth = Dimensions.get('window').width - 64
+  const chartHeight = 140
+  const maxW = Math.max(...points.map(p => p.maxWeight), 1)
+  const minW = Math.max(0, Math.min(...points.map(p => p.maxWeight)) - 10)
+  const range = maxW - minW || 1
 
   function toX(i: number) {
-    if (points.length === 1) return chartWidth / 2;
-    return (i / (points.length - 1)) * chartWidth;
+    if (points.length === 1) return chartWidth / 2
+    return (i / (points.length - 1)) * chartWidth
   }
 
   function toY(w: number) {
-    return chartHeight - ((w - minW) / range) * chartHeight;
+    return chartHeight - ((w - minW) / range) * chartHeight
   }
 
   const pathD =
     points.length > 0
-      ? points
-          .map(
-            (p, i) =>
-              `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(p.maxWeight).toFixed(1)}`,
-          )
-          .join(" ")
-      : "";
+      ? points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(p.maxWeight).toFixed(1)}`).join(' ')
+      : ''
 
   const fillD =
     points.length > 0
       ? `${pathD} L ${toX(points.length - 1).toFixed(1)} ${chartHeight} L ${toX(0).toFixed(1)} ${chartHeight} Z`
-      : "";
+      : ''
 
   return (
     <View style={styles.container}>
@@ -212,23 +181,19 @@ export default function ExerciseDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.topBarTitle} numberOfLines={1}>
-          {exerciseName}
-        </Text>
+        <Text style={styles.topBarTitle} numberOfLines={1}>{exerciseName}</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Stats row */}
         <View style={styles.statsRow}>
           {[
-            { label: "PR", value: formatWeight(stats.pr) },
-            { label: "Sessions", value: stats.sessions },
-            { label: "Avg reps", value: stats.avgReps },
-            { label: "Avg weight", value: formatWeight(stats.avgWeight) },
-          ].map((s) => (
+            { label: 'PR', value: formatWeight(stats.pr) },
+            { label: 'Sessions', value: stats.sessions },
+            { label: 'Avg reps', value: stats.avgReps },
+            { label: 'Avg weight', value: formatWeight(stats.avgWeight) },
+          ].map(s => (
             <View key={s.label} style={styles.statCard}>
               <Text style={styles.statLabel}>{s.label}</Text>
               <Text style={styles.statValue}>{s.value}</Text>
@@ -236,23 +201,16 @@ export default function ExerciseDetailScreen() {
           ))}
         </View>
 
+        {/* Chart */}
         <View style={styles.chartCard}>
           <View style={styles.rangeRow}>
             {RANGES.map((r, i) => (
               <TouchableOpacity
                 key={r.label}
-                style={[
-                  styles.rangeBtn,
-                  selectedRange === i && styles.rangeBtnActive,
-                ]}
+                style={[styles.rangeBtn, selectedRange === i && styles.rangeBtnActive]}
                 onPress={() => setSelectedRange(i)}
               >
-                <Text
-                  style={[
-                    styles.rangeBtnText,
-                    selectedRange === i && styles.rangeBtnTextActive,
-                  ]}
-                >
+                <Text style={[styles.rangeBtnText, selectedRange === i && styles.rangeBtnTextActive]}>
                   {r.label}
                 </Text>
               </TouchableOpacity>
@@ -266,171 +224,124 @@ export default function ExerciseDetailScreen() {
           ) : (
             <>
               <View style={{ height: chartHeight + 20, marginTop: 8 }}>
-                <Svg
-                  width={chartWidth}
-                  height={chartHeight}
-                  style={{ overflow: "visible" }}
-                >
+                <Svg width={chartWidth} height={chartHeight} style={{ overflow: 'visible' }}>
                   <Path d={fillD} fill="rgba(128,0,0,0.08)" />
-                  <Path
-                    d={pathD}
-                    fill="none"
-                    stroke="#800000"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
+                  <Path d={pathD} fill="none" stroke="#800000" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                   {points.map((p, i) => (
-                    <Circle
-                      key={i}
-                      cx={toX(i)}
-                      cy={toY(p.maxWeight)}
-                      r="4"
-                      fill="#800000"
-                    />
+                    <Circle key={i} cx={toX(i)} cy={toY(p.maxWeight)} r="4" fill="#800000" />
                   ))}
                 </Svg>
-
                 <View style={[styles.chartLabels, { width: chartWidth }]}>
                   {points.length > 1 && (
                     <>
                       <Text style={styles.chartLabel}>{points[0].date}</Text>
-                      <Text style={styles.chartLabel}>
-                        {points[points.length - 1].date}
-                      </Text>
+                      <Text style={styles.chartLabel}>{points[points.length - 1].date}</Text>
                     </>
                   )}
                 </View>
               </View>
-
               <View style={styles.yLabels}>
-                <Text style={styles.yLabel}>
-                  {toDisplay(maxW)}
-                  {unit}
-                </Text>
-                <Text style={styles.yLabel}>
-                  {Math.round(toDisplay((maxW + minW) / 2))}
-                  {unit}
-                </Text>
-                <Text style={styles.yLabel}>
-                  {toDisplay(minW)}
-                  {unit}
-                </Text>
+                <Text style={styles.yLabel}>{toDisplay(maxW)}{unit}</Text>
+                <Text style={styles.yLabel}>{Math.round(toDisplay((maxW + minW) / 2))}{unit}</Text>
+                <Text style={styles.yLabel}>{toDisplay(minW)}{unit}</Text>
               </View>
             </>
           )}
         </View>
 
-        {/* Session history temporarily removed */}
+        {/* Session history */}
+        {allSets.length > 0 && (() => {
+          // Build per-session summary
+          const sessionMap = new Map<string, { date: string; maxWeight: number; totalSets: number; session_id: string }>()
+          allSets.forEach(s => {
+            if (!sessionMap.has(s.session_id)) {
+              sessionMap.set(s.session_id, {
+                session_id: s.session_id,
+                date: s.session_date,
+                maxWeight: 0,
+                totalSets: 0,
+              })
+            }
+            const entry = sessionMap.get(s.session_id)!
+            if (s.weight_used > entry.maxWeight) entry.maxWeight = s.weight_used
+            entry.totalSets++
+          })
+
+          const history = Array.from(sessionMap.values()).sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+
+          return (
+            <View style={styles.historySection}>
+              <Text style={styles.historyTitle}>SESSION HISTORY</Text>
+              {history.map(h => (
+                <TouchableOpacity
+                  key={h.session_id}
+                  style={styles.historyCard}
+                  onPress={() => router.push({ pathname: '/session-detail/[id]', params: { id: h.session_id } })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.historyDate}>
+                    {new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </Text>
+                  <View style={styles.historyRight}>
+                    <Text style={styles.historyMeta}>{h.totalSets} sets · {formatWeight(h.maxWeight)} max</Text>
+                    <Text style={styles.historyArrow}>›</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )
+        })()}
       </ScrollView>
     </View>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#050505" },
-  centered: {
-    flex: 1,
-    backgroundColor: "#050505",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 16,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    backgroundColor: "#111",
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backIcon: { color: "#fff", fontSize: 22 },
-  topBarTitle: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-    flex: 1,
-    textAlign: "center",
-    marginHorizontal: 8,
-  },
-  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
-  statsRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#111",
+  container: { flex: 1, backgroundColor: '#050505' },
+  centered: { flex: 1, backgroundColor: '#050505', justifyContent: 'center', alignItems: 'center' },
+
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12 },
+  backBtn: { width: 36, height: 36, justifyContent: 'center' },
+  backIcon: { color: '#800000', fontSize: 28, lineHeight: 32 },
+  topBarTitle: { flex: 1, color: '#fff', fontSize: 17, fontWeight: '700', textAlign: 'center' },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 },
+
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  statCard: { flex: 1, backgroundColor: '#111', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1a1a1a' },
+  statLabel: { color: '#555', fontSize: 10, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 },
+  statValue: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  chartCard: { backgroundColor: '#111', borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1a1a1a' },
+  rangeRow: { flexDirection: 'row', gap: 6 },
+  rangeBtn: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 8, backgroundColor: '#1a1a1a' },
+  rangeBtnActive: { backgroundColor: '#800000' },
+  rangeBtnText: { color: '#555', fontSize: 12, fontWeight: '600' },
+  rangeBtnTextActive: { color: '#fff' },
+  noData: { alignItems: 'center', paddingVertical: 32 },
+  noDataText: { color: '#444', fontSize: 13 },
+  chartLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  chartLabel: { color: '#444', fontSize: 10 },
+  yLabels: { gap: 4 },
+  yLabel: { color: '#444', fontSize: 10 },
+
+  historySection: { marginTop: 4 },
+  historyTitle: { color: '#555', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
+  historyCard: {
+    backgroundColor: '#111',
     borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
+    padding: 14,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#1a1a1a",
+    borderColor: '#1a1a1a',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  statLabel: {
-    color: "#555",
-    fontSize: 10,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  statValue: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  chartCard: {
-    backgroundColor: "#111",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#1a1a1a",
-  },
-  rangeRow: { flexDirection: "row", gap: 6 },
-  rangeBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: "#1a1a1a",
-  },
-  rangeBtnActive: { backgroundColor: "#800000" },
-  rangeBtnText: { color: "#555", fontSize: 12, fontWeight: "600" },
-  rangeBtnTextActive: { color: "#fff" },
-  noData: { height: 100, alignItems: "center", justifyContent: "center" },
-  noDataText: { color: "#333", fontSize: 13 },
-  chartLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-  chartLabel: { color: "#444", fontSize: 10 },
-  yLabels: {
-    position: "absolute",
-    right: 0,
-    top: 48,
-    bottom: 0,
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  yLabel: { color: "#444", fontSize: 10 },
-  sectionLabel: {
-    color: "#555",
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: 12,
-  },
-  historyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#111",
-  },
-  historyDate: { color: "#555", fontSize: 13 },
-  historyRight: { alignItems: "flex-end" },
-  historyWeight: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  historySets: { color: "#555", fontSize: 11, marginTop: 2 },
-});
+  historyDate: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  historyRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  historyMeta: { color: '#555', fontSize: 12 },
+  historyArrow: { color: '#800000', fontSize: 18 },
+})

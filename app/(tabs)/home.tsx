@@ -12,11 +12,16 @@ import {
 import { supabase } from "../../lib/supabase";
 
 interface RecentSession {
-  id: string;
-  program_day_id: string;
-  started_at: string;
-  status: string;
-  program_days: { name: string }[] | null;
+  id: string
+  program_day_id: string
+  started_at: string
+  status: string
+  program_days: {
+    name: string
+    programs: {
+      name: string
+    } | null
+  } | null
 }
 
 interface GridDay {
@@ -63,7 +68,6 @@ export default function HomeScreen() {
 
     const firstDayOfMonth = new Date(year, month, 1);
     let startDayIndex = firstDayOfMonth.getDay();
-    startDayIndex = startDayIndex === 0 ? 6 : startDayIndex - 1;
 
     const totalDays = new Date(year, month + 1, 0).getDate();
     const gridDays: GridDay[] = [];
@@ -140,13 +144,13 @@ export default function HomeScreen() {
 
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, program_day_id, started_at, status, program_days(name)")
+        .select("id, program_day_id, started_at, status, program_days(name, programs(name))")
         .eq("user_id", user.id)
         .order("started_at", { ascending: false })
         .limit(6);
 
       if (error) throw error;
-      setRecentSessions((data as RecentSession[]) || []);
+      setRecentSessions((data as unknown as RecentSession[]) || []);
 
       const monthsCount = (data || []).filter((s: any) => {
         const d = new Date(s.started_at);
@@ -270,7 +274,7 @@ export default function HomeScreen() {
           <View style={styles.calendarInnerContent}>
             {/* Weekday Labels Row */}
             <View style={styles.weekLabelsRow}>
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                 (day, index) => (
                   <View key={index} style={styles.gridCellWrapper}>
                     <Text style={styles.weekLabel}>{day}</Text>
@@ -333,11 +337,15 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
-
-        {/* Recommended Templates removed from Home (moved to Programs) */}
-
         {/* Recent Sessions List */}
-        <Text style={styles.sectionTitle}>RECENT SESSIONS</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>RECENT SESSIONS</Text>
+          {recentSessions.length > 0 && (
+            <TouchableOpacity onPress={() => router.push('/(tabs)/progress?tab=sessions')}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {recentSessions.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -346,20 +354,20 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          recentSessions.map((session) => (
+          recentSessions.slice(0, 5).map((session) => (
             <TouchableOpacity
               key={session.id}
               style={styles.sessionCard}
               activeOpacity={0.8}
-              onPress={() => router.push(`/session/${session.id}`)}
+              onPress={() => router.push({ pathname: '/session-detail/[id]', params: { id: session.id } })}
             >
               <View style={styles.sessionRow}>
                 <Text style={styles.sessionName}>
-                  {session.program_days?.[0]?.name || "Workout"}
+                  {session.program_days?.programs?.name
+                    ? `${session.program_days.programs.name} — ${session.program_days.name}`
+                    : session.program_days?.name || "Workout"}
                 </Text>
-                <Text style={styles.sessionDate}>
-                  {formatDate(session.started_at)}
-                </Text>
+                <Text style={styles.sessionDate}>{formatDate(session.started_at)}</Text>
               </View>
               <View style={styles.sessionMeta}>
                 <View style={styles.statusBadge}>
@@ -370,6 +378,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))
         )}
+
       </ScrollView>
     </View>
   );
@@ -385,7 +394,22 @@ const styles = StyleSheet.create({
     height: 520,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
-
+  seeAllBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  seeAllText: { color: '#800000', fontSize: 12, fontWeight: '600' },
   // Precise Grid Row System for Header Elements
   headerContainer: {
     flexDirection: "row",

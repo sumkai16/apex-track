@@ -191,111 +191,96 @@ export default function ProgramsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Recommended Templates (moved from Home) */}
+        {/* Recommended Templates - horizontal scroll */}
         <Text style={styles.sectionTitle}>RECOMMENDED TEMPLATES</Text>
 
-        {[
-          {
-            id: "strength-4wk",
-            title: "4-Week Strength Builder",
-            subtitle:
-              "Progressive full-body strength program — Beginner to Intermediate",
-          },
-          {
-            id: "hypertrophy-6wk",
-            title: "6-Week Hypertrophy Focus",
-            subtitle:
-              "Upper/lower split with volume progression for muscle growth",
-          },
-          {
-            id: "conditioning-3wk",
-            title: "3-Week Conditioning Primer",
-            subtitle:
-              "Short, intense sessions to boost aerobic capacity and work capacity",
-          },
-        ].map((t) => (
-          <TouchableOpacity
-            key={t.id}
-            style={styles.templateCard}
-            activeOpacity={0.92}
-            onPress={async () => {
-              setSelectedTemplate(t);
-              setTemplateModalVisible(true);
-              const names = TEMPLATE_EXERCISES[t.id] || [];
-              setLoadingTemplate(true);
-              try {
-                const { data, error } = await supabase
-                  .from("exercises")
-                  .select("id, name, icon, estimated_duration")
-                  .in("name", names);
-                if (error) throw error;
-
-                // Preserve order from names
-                const ordered = names.map(
-                  (n) => data?.find((d: any) => d.name === n) || { name: n },
-                );
-                setTemplateExercises(ordered);
-
-                // prepare animated values for each row
-                animValuesRef.current = ordered.map(
-                  () => new Animated.Value(20),
-                );
-                // run entry animation
-                Animated.stagger(
-                  80,
-                  animValuesRef.current.map((av) =>
-                    Animated.timing(av, {
-                      toValue: 0,
-                      duration: 300,
-                      useNativeDriver: true,
-                    }),
-                  ),
-                ).start();
-              } catch (err) {
-                setTemplateExercises(names.map((n) => ({ name: n })));
-                animValuesRef.current = names.map(() => new Animated.Value(0));
-              } finally {
-                setLoadingTemplate(false);
-              }
-            }}
-          >
-            <LinearGradient
-              colors={["rgba(179,0,0,0.12)", "rgba(13,13,13,0.35)"]}
-              style={styles.templateGradient}
-            />
-            <View style={styles.templateInner}>
-              <View style={styles.templateLeft}>
-                <View style={styles.templateIconCircle}>
-                  <Ionicons name="barbell" size={18} color="#fff" />
-                </View>
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.templateTitle}>{t.title}</Text>
-                  <Text style={styles.templateSubtitle} numberOfLines={2}>
-                    {t.subtitle}
-                  </Text>
-                </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.templateScrollContent}
+          style={styles.templateScroll}
+        >
+          {[
+            {
+              id: "strength-4wk",
+              title: "4-Week Strength Builder",
+              subtitle: "Progressive full-body strength — Beginner to Intermediate",
+            },
+            {
+              id: "hypertrophy-6wk",
+              title: "6-Week Hypertrophy Focus",
+              subtitle: "Upper/lower split with volume progression",
+            },
+            {
+              id: "conditioning-3wk",
+              title: "3-Week Conditioning Primer",
+              subtitle: "Short, intense sessions for aerobic capacity",
+            },
+          ].map((t) => (
+            <TouchableOpacity
+              key={t.id}
+              style={styles.templateCard}
+              activeOpacity={0.92}
+              onPress={async () => {
+                setSelectedTemplate(t);
+                setTemplateModalVisible(true);
+                const names = TEMPLATE_EXERCISES[t.id] || [];
+                setLoadingTemplate(true);
+                try {
+                  const { data, error } = await supabase
+                    .from("exercises")
+                    .select("id, name, icon, estimated_duration")
+                    .in("name", names);
+                  if (error) throw error;
+                  const ordered = names.map(
+                    (n) => data?.find((d: any) => d.name === n) || { name: n },
+                  );
+                  setTemplateExercises(ordered);
+                  animValuesRef.current = ordered.map(() => new Animated.Value(20));
+                  Animated.stagger(
+                    80,
+                    animValuesRef.current.map((av) =>
+                      Animated.timing(av, {
+                        toValue: 0,
+                        duration: 300,
+                        useNativeDriver: true,
+                      }),
+                    ),
+                  ).start();
+                } catch (err) {
+                  setTemplateExercises(names.map((n) => ({ name: n })));
+                  animValuesRef.current = names.map(() => new Animated.Value(0));
+                } finally {
+                  setLoadingTemplate(false);
+                }
+              }}
+            >
+              <LinearGradient
+                colors={["rgba(179,0,0,0.12)", "rgba(13,13,13,0.35)"]}
+                style={styles.templateGradient}
+              />
+              <View style={styles.templateIconCircle}>
+                <Ionicons name="barbell" size={18} color="#fff" />
               </View>
-
+              <Text style={styles.templateTitle} numberOfLines={2}>{t.title}</Text>
+              <Text style={styles.templateSubtitle} numberOfLines={2}>{t.subtitle}</Text>
               <TouchableOpacity
-                style={styles.templateButton}
-                onPress={() =>
+                style={styles.templateUseBtn}
+                onPress={(e) => {
+                  e.stopPropagation()
                   router.push(
                     `/programs/create?template=${encodeURIComponent(
-                      JSON.stringify({
-                        id: t.id,
-                        name: t.title,
-                        description: t.subtitle,
-                      }),
+                      JSON.stringify({ id: t.id, name: t.title, description: t.subtitle }),
                     )}`,
                   )
-                }
+                }}
                 activeOpacity={0.85}
               >
-                <Text style={styles.templateButtonText}>Use</Text>
+                <Text style={styles.templateUseBtnText}>Use</Text>
               </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {/* Template Preview Modal */}
         <Modal
@@ -901,23 +886,63 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     fontWeight: "700",
   },
+  templateScroll: {
+    marginHorizontal: -20, // bleed to screen edge
+    marginBottom: 24,
+  },
+  templateScrollContent: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
   templateCard: {
+    width: 200,
     backgroundColor: "#0d0d0d",
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#141414",
     overflow: "hidden",
   },
   templateGradient: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    left: 0, right: 0, top: 0, bottom: 0,
     borderRadius: 16,
   },
+  templateIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#800000",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  templateTitle: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  templateSubtitle: {
+    color: "#666",
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 14,
+  },
+  templateUseBtn: {
+    backgroundColor: "#800000",
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  templateUseBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+
   templateInner: {
     flexDirection: "row",
     alignItems: "center",
@@ -928,26 +953,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
   },
-  templateIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#800000",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(179,0,0,0.15)",
-  },
-  templateTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  templateSubtitle: {
-    color: "#aaa",
-    fontSize: 12,
-    marginTop: 2,
-  },
+
+
   templateButton: {
     backgroundColor: "#b30000",
     paddingHorizontal: 12,
