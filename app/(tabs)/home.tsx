@@ -12,16 +12,16 @@ import {
 import { supabase } from "../../lib/supabase";
 
 interface RecentSession {
-  id: string
-  program_day_id: string
-  started_at: string
-  status: string
+  id: string;
+  program_day_id: string;
+  started_at: string;
+  status: string;
   program_days: {
-    name: string
+    name: string;
     programs: {
-      name: string
-    } | null
-  } | null
+      name: string;
+    } | null;
+  } | null;
 }
 
 interface GridDay {
@@ -37,8 +37,7 @@ export default function HomeScreen() {
   const [completedDates, setCompletedDates] = useState<string[]>([]);
   const [currentMonthName, setCurrentMonthName] = useState("");
   const [sessionsThisMonthCount, setSessionsThisMonthCount] = useState(0);
-  const [templateModalVisible, setTemplateModalVisible] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  // template modal state removed (unused)
 
   useEffect(() => {
     fetchProfile();
@@ -144,7 +143,9 @@ export default function HomeScreen() {
 
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, program_day_id, started_at, status, program_days(name, programs(name))")
+        .select(
+          "id, program_day_id, started_at, status, program_days(name, programs(name))",
+        )
         .eq("user_id", user.id)
         .order("started_at", { ascending: false })
         .limit(6);
@@ -199,19 +200,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Absolute Center Block: APEX TRACK Branded Gradient Badge */}
-          <View style={styles.absoluteCenterContainer} pointerEvents="none">
-            <LinearGradient
-              colors={["rgba(20, 20, 20, 0.85)", "rgba(179, 0, 0, 0.15)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.brandGradientBadge}
-            >
-              <Text style={styles.brandTextPrimary}>
-                APEX <Text style={styles.brandTextSecondary}>TRACK</Text>
-              </Text>
-            </LinearGradient>
-          </View>
+          {/* Removed center branding to clean header */}
 
           {/* Right Block: Dedicated Logout Action Button (Replaced image_68a29e.png) */}
           <View style={styles.rightHeaderBlock}>
@@ -341,7 +330,9 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>RECENT SESSIONS</Text>
           {recentSessions.length > 0 && (
-            <TouchableOpacity onPress={() => router.push('/(tabs)/progress?tab=sessions')}>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/progress?tab=sessions")}
+            >
               <Text style={styles.seeAllText}>See all</Text>
             </TouchableOpacity>
           )}
@@ -359,7 +350,12 @@ export default function HomeScreen() {
               key={session.id}
               style={styles.sessionCard}
               activeOpacity={0.8}
-              onPress={() => router.push({ pathname: '/session-detail/[id]', params: { id: session.id } })}
+              onPress={() =>
+                router.push({
+                  pathname: "/session-detail/[id]",
+                  params: { id: session.id },
+                })
+              }
             >
               <View style={styles.sessionRow}>
                 <Text style={styles.sessionName}>
@@ -367,7 +363,9 @@ export default function HomeScreen() {
                     ? `${session.program_days.programs.name} — ${session.program_days.name}`
                     : session.program_days?.name || "Workout"}
                 </Text>
-                <Text style={styles.sessionDate}>{formatDate(session.started_at)}</Text>
+                <Text style={styles.sessionDate}>
+                  {formatDate(session.started_at)}
+                </Text>
               </View>
               <View style={styles.sessionMeta}>
                 <View style={styles.statusBadge}>
@@ -378,7 +376,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))
         )}
-
       </ScrollView>
     </View>
   );
@@ -395,21 +392,21 @@ const styles = StyleSheet.create({
   },
   scroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 24 },
   seeAllBtn: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1a1a1a',
+    borderColor: "#1a1a1a",
     marginTop: 4,
     marginBottom: 8,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 14,
   },
-  seeAllText: { color: '#800000', fontSize: 12, fontWeight: '600' },
+  seeAllText: { color: "#800000", fontSize: 12, fontWeight: "600" },
   // Precise Grid Row System for Header Elements
   headerContainer: {
     flexDirection: "row",
@@ -429,20 +426,20 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   greetingBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: "rgba(179,0,0,0.06)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     alignSelf: "flex-start",
-    marginBottom: 4,
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(179,0,0,0.12)",
   },
   greeting: {
-    color: "#666",
-    fontSize: 9,
+    color: "#cfcfcf",
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
     textTransform: "uppercase",
   },
   nameContainer: {
@@ -451,9 +448,9 @@ const styles = StyleSheet.create({
   },
   name: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.6,
   },
   nameAccent: {
     color: "#b30000",
@@ -461,41 +458,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  // Absolute Centering Layout Layer for App Identity Branding
-  absoluteCenterContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  brandGradientBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(179, 0, 0, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  brandTextPrimary: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: 2.0,
-    textTransform: "uppercase",
-  },
-  brandTextSecondary: {
-    color: "#e60000",
-    fontWeight: "900",
-  },
+  // branding removed
 
   // Semantic Logout Action Button (Replaced style template from image_68a29e.png)
   logoutButton: {
@@ -517,12 +480,16 @@ const styles = StyleSheet.create({
   // Hero Card
   heroContainer: {
     backgroundColor: "#0d0d0d",
-    borderRadius: 20,
-    marginBottom: 32,
+    borderRadius: 18,
+    marginBottom: 28,
     overflow: "hidden",
     position: "relative",
-    borderWidth: 1,
-    borderColor: "#1a1a1a",
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
   },
   heroGradientStyle: {
     position: "absolute",
@@ -562,7 +529,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   modernActionPill: {
-    backgroundColor: "#fff",
+    backgroundColor: "#b30000",
     paddingVertical: 10,
     paddingLeft: 18,
     paddingRight: 10,
@@ -572,22 +539,22 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modernActionText: {
-    color: "#000",
+    color: "#fff",
     fontSize: 14,
     fontWeight: "700",
   },
   modernActionCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#000",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    paddingLeft: 2,
+    paddingLeft: 0,
   },
   modernActionArrow: {
-    color: "#fff",
-    fontSize: 9,
+    color: "#b30000",
+    fontSize: 12,
   },
 
   sectionTitle: {
@@ -619,10 +586,8 @@ const styles = StyleSheet.create({
   },
   weekLabelsRow: {
     flexDirection: "row",
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#141414",
-    paddingBottom: 10,
+    marginBottom: 10,
+    paddingBottom: 6,
   },
   gridCellWrapper: {
     width: "14.28%",
@@ -641,35 +606,39 @@ const styles = StyleSheet.create({
     rowGap: 10,
   },
   gridDayBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.01)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.02)",
+    borderWidth: 0,
   },
   todayActiveBox: {
-    backgroundColor: "#800000",
+    backgroundColor: "#b30000",
     borderColor: "#b30000",
+    shadowColor: "#b30000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
   dayBoxText: {
-    color: "#777",
-    fontSize: 12,
-    fontWeight: "600",
+    color: "#9a9a9a",
+    fontSize: 13,
+    fontWeight: "700",
   },
   todayActiveText: {
     color: "#fff",
-    fontWeight: "800",
+    fontWeight: "900",
   },
   trainedIndicatorDot: {
     position: "absolute",
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    bottom: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#b30000",
   },
   trainedIndicatorDotToday: {
@@ -717,12 +686,16 @@ const styles = StyleSheet.create({
   },
   emptyText: { color: "#444", fontSize: 13 },
   sessionCard: {
-    backgroundColor: "#0d0d0d",
-    borderRadius: 16,
+    backgroundColor: "#0f0f0f",
+    borderRadius: 14,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#161616",
+    borderWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 2,
   },
   sessionRow: {
     flexDirection: "row",
@@ -742,12 +715,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(179, 0, 0, 0.06)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: "rgba(179, 0, 0, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 0,
   },
   sessionCheck: { color: "#b30000", fontSize: 10, fontWeight: "900" },
   sessionInfo: {
