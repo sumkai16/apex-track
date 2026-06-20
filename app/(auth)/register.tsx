@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { signInWithGoogle } from "../../lib/auth/google";
 import { supabase } from "../../lib/supabase";
 import { registeringFlag } from "../_layout";
 
@@ -22,6 +23,8 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const busy = loading || googleLoading;
   const [errors, setErrors] = useState({
     displayName: "",
     email: "",
@@ -64,7 +67,19 @@ export default function RegisterScreen() {
     }
     return "";
   };
-
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      const success = await signInWithGoogle();
+      if (success) {
+        router.replace("/(tabs)/home");
+      }
+    } catch (err: any) {
+      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
   const validateConfirmPassword = (text: string) => {
     if (!text) {
       return "Please confirm your password";
@@ -282,7 +297,11 @@ export default function RegisterScreen() {
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
+          <TouchableOpacity
+            style={[styles.socialButton, busy && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={busy}
+          >
             <Image
               source={require("../../assets/images/gmail.png")}
               style={styles.socialIcon}
@@ -376,13 +395,13 @@ const styles = StyleSheet.create({
 
   socialButton: {
     flex: 1,
-    backgroundColor: "#111",
+    backgroundColor: "#0a0a0a",
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  socialIcon: { width: 24, height: 24 },
+  socialIcon: { width: 40, height: 40 },
   linkButton: { alignItems: "center" },
   linkText: { color: "#555", fontSize: 13 },
   linkAccent: { color: "#800000", fontWeight: "600" },

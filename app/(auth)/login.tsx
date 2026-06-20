@@ -12,8 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { signInWithGoogle } from "../../lib/auth/google";
 import { supabase } from "../../lib/supabase";
-
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +23,8 @@ export default function LoginScreen() {
   const params = useLocalSearchParams();
   const registered = params?.registered;
   const [showSuccess, setShowSuccess] = useState(false);
-
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const busy = loading || googleLoading;
   useEffect(() => {
     if (registered) {
       setShowSuccess(true);
@@ -99,7 +100,19 @@ export default function LoginScreen() {
       router.replace("/(tabs)/home");
     }
   }
-
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      const success = await signInWithGoogle();
+      if (success) {
+        router.replace("/(tabs)/home");
+      }
+    } catch (err: any) {
+      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -196,7 +209,11 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
+          <TouchableOpacity
+            style={[styles.socialButton, busy && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={busy}
+          >
             <Image
               source={require("../../assets/images/gmail.png")}
               style={styles.socialIcon}
