@@ -12,8 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { signInWithFacebook } from "../../lib/auth/facebook";
 import { signInWithGoogle } from "../../lib/auth/google";
 import { supabase } from "../../lib/supabase";
+import { registeringFlag } from '../_layout';
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +26,9 @@ export default function LoginScreen() {
   const registered = params?.registered;
   const [showSuccess, setShowSuccess] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const busy = loading || googleLoading;
+  const [facebookLoading, setFacebookLoading] = useState(false);
+  const busy = loading || googleLoading || facebookLoading;
+
   useEffect(() => {
     if (registered) {
       setShowSuccess(true);
@@ -97,16 +101,56 @@ export default function LoginScreen() {
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
     try {
-      const success = await signInWithGoogle();
-      if (success) {
-        router.replace("/(tabs)/home");
+      const result = await signInWithGoogle();
+      if (result.success) {
+        if (result.isNewUser) {
+          router.replace({
+            pathname: '/(auth)/confirm-name',
+            params: { suggestedName: result.suggestedName ?? '', avatarUrl: result.avatarUrl ?? '' },
+          });
+        } else {
+          router.replace('/(tabs)/home');
+        }
       }
     } catch (err: any) {
-      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
+      Alert.alert('Google sign-in failed', err.message ?? 'Please try again.');
     } finally {
       setGoogleLoading(false);
     }
   }
+  const handleFacebookSignIn = async () => {
+    registeringFlag.value = true;
+    setFacebookLoading(true);
+    try {
+      const result = await signInWithFacebook();
+
+      if (result.cancelled) {
+        registeringFlag.value = false;
+        return;
+      }
+
+      if (!result.success) {
+        registeringFlag.value = false;
+        Alert.alert('Sign-in failed', result.error ?? 'Something went wrong with Facebook sign-in.');
+        return;
+      }
+
+      if (result.isNewUser) {
+        router.push({
+          pathname: '/(auth)/confirm-name',
+          params: {
+            suggestedName: result.suggestedName ?? '',
+            avatarUrl: result.avatarUrl ?? '',
+          },
+        });
+      } else {
+        registeringFlag.value = false;
+        router.replace('/(tabs)/home');
+      }
+    } finally {
+      setFacebookLoading(false);
+    }
+  };
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -196,7 +240,11 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.socialRow}>
-          <TouchableOpacity style={styles.socialButton}>
+          <TouchableOpacity
+            style={[styles.socialButton, busy && styles.buttonDisabled]}
+            onPress={handleFacebookSignIn}
+            disabled={busy}
+          >
             <Image
               source={require("../../assets/images/fb.png")}
               style={styles.socialIcon}

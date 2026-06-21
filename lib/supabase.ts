@@ -12,8 +12,8 @@ const authOptions: any = {
   autoRefreshToken: true,
   persistSession: true,
   detectSessionInUrl: false,
+  flowType: 'pkce',
 };
-
 // Safely assign AsyncStorage for native platforms
 if (Platform.OS !== "web") {
   authOptions.storage = AsyncStorage;

@@ -1,9 +1,14 @@
+import { signOutGoogle } from "@/lib/auth/google";
 import { supabase } from "@/lib/supabase";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
+
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,8 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 import { useWeightUnit } from '../../lib/WeightUnitContext';
 type WeightUnit = "kg" | "lbs";
 type HeightUnit = "cm" | "ft";
@@ -30,6 +33,7 @@ const GOALS = [
 
 interface Profile {
   display_name: string;
+  avatar_url: string | null;
   weight_unit: WeightUnit;
   height_unit: HeightUnit;
   age: number | null;
@@ -82,7 +86,7 @@ export default function ProfileScreen() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "display_name, weight_unit, height_unit, age, height_cm, weight_kg, gender, fitness_goal",
+          "display_name, avatar_url, weight_unit, height_unit, age, height_cm, weight_kg, gender, fitness_goal",
         )
         .eq("id", user.id)
         .single();
@@ -252,6 +256,7 @@ export default function ProfileScreen() {
         text: "Log out",
         style: "destructive",
         onPress: async () => {
+          await signOutGoogle();
           await supabase.auth.signOut();
           router.replace("/(auth)/login");
         },
@@ -371,11 +376,15 @@ export default function ProfileScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.avatarGradientBorder}
           >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {getInitials(profile?.display_name ?? "U")}
-              </Text>
-            </View>
+            {profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {getInitials(profile?.display_name ?? "U")}
+                </Text>
+              </View>
+            )}
           </LinearGradient>
           <Text style={styles.displayName}>{profile?.display_name}</Text>
           <Text style={styles.emailText}>{email}</Text>
@@ -546,7 +555,7 @@ export default function ProfileScreen() {
           <Ionicons name="trash-outline" size={14} color="#555" style={{ marginRight: 6 }} />
           <Text style={styles.deleteText}>Delete account</Text>
         </TouchableOpacity>
-        <Text style={styles.versionText}>Apex Track v1.0.0</Text>
+        <Text style={styles.versionText}>Apex Track v1.1.1</Text>
       </ScrollView>
 
       {/* Edit name modal */}
@@ -825,6 +834,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#050505",
     alignItems: "center",
     justifyContent: "center",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 38,
   },
   headerSection: {
     alignItems: "center",
