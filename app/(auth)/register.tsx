@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { signInWithGoogle } from "../../lib/auth/google";
 import { supabase } from "../../lib/supabase";
 import { registeringFlag } from "../_layout";
 
@@ -67,19 +66,19 @@ export default function RegisterScreen() {
     }
     return "";
   };
-  async function handleGoogleSignIn() {
-    setGoogleLoading(true);
-    try {
-      const success = await signInWithGoogle();
-      if (success) {
-        router.replace("/(tabs)/home");
-      }
-    } catch (err: any) {
-      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
+  // async function handleGoogleSignIn() {
+  //   setGoogleLoading(true);
+  //   try {
+  //     const success = await signInWithGoogle();
+  //     if (success) {
+  //       router.replace("/(tabs)/home");
+  //     }
+  //   } catch (err: any) {
+  //     Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
+  //   } finally {
+  //     setGoogleLoading(false);
+  //   }
+  // }
   const validateConfirmPassword = (text: string) => {
     if (!text) {
       return "Please confirm your password";
@@ -297,11 +296,7 @@ export default function RegisterScreen() {
               resizeMode="contain"
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.socialButton, busy && styles.buttonDisabled]}
-            onPress={handleGoogleSignIn}
-            disabled={busy}
-          >
+          <TouchableOpacity style={styles.socialButton}>
             <Image
               source={require("../../assets/images/gmail.png")}
               style={styles.socialIcon}
