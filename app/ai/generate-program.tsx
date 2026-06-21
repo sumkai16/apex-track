@@ -269,7 +269,7 @@ Rules:
                         {displayName ? `Let's build your program, ${displayName}.` : "Let's build your program."}
                     </Text>
                 </View>
-                <Text style={styles.headerSub}>Answer the questions below and we'll generate a science-based training program tailored to you.</Text>
+                <Text style={styles.headerSub}>Answer the questions below and we{"'"}ll generate a science-based training program tailored to you.</Text>
 
                 {questions.map((q, qi) => (
                     <View key={q.id} style={styles.questionBlock}>

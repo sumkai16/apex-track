@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { signInWithGoogle } from "../../lib/auth/google";
+import { signInWithGoogle } from "../../lib/auth/oauth";
 import { supabase } from "../../lib/supabase";
 import { registeringFlag } from "../_layout";
 
@@ -67,19 +67,7 @@ export default function RegisterScreen() {
     }
     return "";
   };
-  async function handleGoogleSignIn() {
-    setGoogleLoading(true);
-    try {
-      const success = await signInWithGoogle();
-      if (success) {
-        router.replace("/(tabs)/home");
-      }
-    } catch (err: any) {
-      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
+
   const validateConfirmPassword = (text: string) => {
     if (!text) {
       return "Please confirm your password";
@@ -161,6 +149,20 @@ export default function RegisterScreen() {
     setLoading(false);
     registeringFlag.value = false;
     router.replace("/(auth)/login?registered=1");
+  }
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      const success = await signInWithGoogle();
+      if (success) {
+        router.replace("/(tabs)/home");
+      }
+    } catch (err: any) {
+      Alert.alert("Google sign-in failed", err.message ?? "Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (

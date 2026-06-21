@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { signInWithGoogle } from "../../lib/auth/google";
+import { signInWithGoogle } from "../../lib/auth/oauth";
 import { supabase } from "../../lib/supabase";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -94,6 +94,7 @@ export default function LoginScreen() {
       router.replace("/(tabs)/home");
     }
   }
+
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
     try {
@@ -107,6 +108,7 @@ export default function LoginScreen() {
       setGoogleLoading(false);
     }
   }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}

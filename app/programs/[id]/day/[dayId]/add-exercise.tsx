@@ -502,7 +502,7 @@ export default function AddExerciseScreen() {
             <Ionicons name="add-circle-outline" size={20} color="#800000" />
             <View style={styles.noResultsText}>
               <Text style={styles.noResultsTitle}>
-                No results for "{search}"
+                No results for &quot;{search}&quot;
               </Text>
               <Text style={styles.noResultsSub}>
                 Tap to create this exercise
@@ -524,7 +524,7 @@ export default function AddExerciseScreen() {
               />
               <Text style={styles.emptyFilterTitle}>No exercises found</Text>
               <Text style={styles.emptyFilterSub}>
-                There are no movements logged under the "{selectedCategory}"
+                There are no movements logged under the &quot;{selectedCategory}&quot;
                 track yet.
               </Text>
             </View>

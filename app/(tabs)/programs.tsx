@@ -523,7 +523,7 @@ export default function ProgramsScreen() {
             </View>
             <Text style={styles.emptyTitle}>No matching templates</Text>
             <Text style={styles.emptyText}>
-              We couldn't track down any programs matching your dynamic volume
+              We couldn{"'"}t track down any programs matching your dynamic volume
               or search bounds.
             </Text>
             <TouchableOpacity
