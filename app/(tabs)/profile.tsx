@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useWeightUnit } from '../../lib/WeightUnitContext';
 type WeightUnit = "kg" | "lbs";
 type HeightUnit = "cm" | "ft";
@@ -352,182 +354,200 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Avatar */}
-      <View style={styles.headerSection}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {getInitials(profile?.display_name ?? "U")}
-          </Text>
+    <View style={styles.container}>
+      {/* Dynamic Crimson Ambient Background Glow */}
+      <LinearGradient
+        colors={["rgba(140, 0, 0, 0.22)", "rgba(15, 5, 5, 0.4)", "#050505"]}
+        locations={[0.0, 0.4, 0.85]}
+        style={styles.absoluteGradient}
+      />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Avatar */}
+        <View style={styles.headerSection}>
+          <LinearGradient
+            colors={["#b30000", "#550000", "#111111"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.avatarGradientBorder}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {getInitials(profile?.display_name ?? "U")}
+              </Text>
+            </View>
+          </LinearGradient>
+          <Text style={styles.displayName}>{profile?.display_name}</Text>
+          <Text style={styles.emailText}>{email}</Text>
         </View>
-        <Text style={styles.displayName}>{profile?.display_name}</Text>
-        <Text style={styles.emailText}>{email}</Text>
-      </View>
 
-      {/* Account */}
-      <Text style={styles.sectionLabel}>Account</Text>
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={openEditName}
-          activeOpacity={0.7}
-        >
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1f1a1a" }]}>
-              <Text style={{ color: "#800000", fontSize: 16 }}>✎</Text>
+        {/* Account */}
+        <Text style={styles.sectionLabel}>Account</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={openEditName}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="person-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Display name</Text>
             </View>
-            <Text style={styles.rowLabel}>Display name</Text>
-          </View>
-          <View style={styles.rowRight}>
-            <Text style={styles.rowValue}>{profile?.display_name}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-        <View style={[styles.row, { borderBottomWidth: 0 }]}>
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1a1a1f" }]}>
-              <Text style={{ color: "#5577aa", fontSize: 14 }}>@</Text>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>{profile?.display_name}</Text>
+              <Ionicons name="chevron-forward" size={14} color="#444" />
             </View>
-            <Text style={styles.rowLabel}>Email</Text>
+          </TouchableOpacity>
+          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="mail-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Email</Text>
+            </View>
+            <Text style={styles.rowValue}>{email}</Text>
           </View>
-          <Text style={styles.rowValue}>{email}</Text>
         </View>
-      </View>
 
-      {/* Body Stats */}
-      <Text style={styles.sectionLabel}>Body Stats</Text>
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={openStatsModal}
-          activeOpacity={0.7}
-        >
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1a1f1a" }]}>
-              <Text style={{ fontSize: 15 }}>📋</Text>
+        {/* Body Stats */}
+        <Text style={styles.sectionLabel}>Body Stats</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={openStatsModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="barbell-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Weight</Text>
             </View>
-            <Text style={styles.rowLabel}>Weight</Text>
-          </View>
-          <View style={styles.rowRight}>
-            <Text style={styles.rowValue}>
-              {displayWeight(
-                profile?.weight_kg ?? null,
-                profile?.weight_unit ?? "kg",
-              )}
-            </Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={openStatsModal}
-          activeOpacity={0.7}
-        >
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1a1a1f" }]}>
-              <Text style={{ fontSize: 15 }}>📏</Text>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>
+                {displayWeight(
+                  profile?.weight_kg ?? null,
+                  profile?.weight_unit ?? "kg",
+                )}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#444" />
             </View>
-            <Text style={styles.rowLabel}>Height</Text>
-          </View>
-          <View style={styles.rowRight}>
-            <Text style={styles.rowValue}>
-              {displayHeight(
-                profile?.height_cm ?? null,
-                profile?.height_unit ?? "cm",
-              )}
-            </Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={openStatsModal}
-          activeOpacity={0.7}
-        >
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1f1f1a" }]}>
-              <Text style={{ fontSize: 15 }}>🎯</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={openStatsModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="resize-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Height</Text>
             </View>
-            <Text style={styles.rowLabel}>Goal</Text>
-          </View>
-          <View style={styles.rowRight}>
-            <Text style={styles.rowValue}>{profile?.fitness_goal ?? "—"}</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.row, { borderBottomWidth: 0 }]}
-          onPress={openStatsModal}
-          activeOpacity={0.7}
-        >
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1a1f1f" }]}>
-              <Text style={{ fontSize: 15 }}>🎂</Text>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>
+                {displayHeight(
+                  profile?.height_cm ?? null,
+                  profile?.height_unit ?? "cm",
+                )}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#444" />
             </View>
-            <Text style={styles.rowLabel}>Age</Text>
-          </View>
-          <View style={styles.rowRight}>
-            <Text style={styles.rowValue}>
-              {profile?.age ? `${profile.age} yrs` : "—"}
-            </Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={openStatsModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="trophy-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Goal</Text>
+            </View>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>{profile?.fitness_goal ?? "—"}</Text>
+              <Ionicons name="chevron-forward" size={14} color="#444" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.row, { borderBottomWidth: 0 }]}
+            onPress={openStatsModal}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="calendar-clear-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Age</Text>
+            </View>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>
+                {profile?.age ? `${profile.age} yrs` : "—"}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#444" />
+            </View>
+          </TouchableOpacity>
+        </View>
 
-      {/* Preferences */}
-      <Text style={styles.sectionLabel}>Preferences</Text>
-      <View style={styles.card}>
-        <View style={[styles.row, { borderBottomWidth: 0 }]}>
-          <View style={styles.rowLeft}>
-            <View style={[styles.rowIcon, { backgroundColor: "#1a1f1a" }]}>
-              <Text style={{ color: "#448844", fontSize: 15 }}>⚖</Text>
+        {/* Preferences */}
+        <Text style={styles.sectionLabel}>Preferences</Text>
+        <View style={styles.card}>
+          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIcon}>
+                <Ionicons name="options-outline" size={15} color="#b30000" />
+              </View>
+              <Text style={styles.rowLabel}>Weight unit</Text>
             </View>
-            <Text style={styles.rowLabel}>Weight unit</Text>
-          </View>
-          <View style={styles.unitToggle}>
-            {(["kg", "lbs"] as WeightUnit[]).map((u) => (
-              <TouchableOpacity
-                key={u}
-                style={[
-                  styles.unitBtn,
-                  profile?.weight_unit === u && styles.unitBtnActive,
-                ]}
-                onPress={() => handleWeightUnitToggle(u)}
-              >
-                <Text
-                  style={
-                    profile?.weight_unit === u
-                      ? styles.unitBtnTextActive
-                      : styles.unitBtnTextInactive
-                  }
+            <View style={styles.unitToggle}>
+              {(["kg", "lbs"] as WeightUnit[]).map((u) => (
+                <TouchableOpacity
+                  key={u}
+                  style={[
+                    styles.unitBtn,
+                    profile?.weight_unit === u && styles.unitBtnActive,
+                  ]}
+                  onPress={() => handleWeightUnitToggle(u)}
                 >
-                  {u}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={
+                      profile?.weight_unit === u
+                        ? styles.unitBtnTextActive
+                        : styles.unitBtnTextInactive
+                    }
+                  >
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
-      </View>
 
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={handleLogout}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.deleteBtn}
-        onPress={() => {
-          setDeleteConfirmText("");
-          setDeleteVisible(true);
-        }}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.deleteText}>Delete account</Text>
-      </TouchableOpacity>
-      <Text style={styles.versionText}>Apex Track v1.0.0</Text>
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="log-out-outline" size={16} color="#b30000" style={{ marginRight: 6 }} />
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => {
+            setDeleteConfirmText("");
+            setDeleteVisible(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={14} color="#555" style={{ marginRight: 6 }} />
+          <Text style={styles.deleteText}>Delete account</Text>
+        </TouchableOpacity>
+        <Text style={styles.versionText}>Apex Track v1.0.0</Text>
+      </ScrollView>
 
       {/* Edit name modal */}
       <Modal visible={editNameVisible} transparent animationType="fade">
@@ -585,7 +605,7 @@ export default function ProfileScreen() {
               onPress={() => setShowStatsModal(false)}
               style={styles.sheetCloseBtn}
             >
-              <Text style={styles.sheetCloseBtnText}>✕</Text>
+              <Ionicons name="close" size={18} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.sheetTitle}>Body Stats</Text>
             <View style={{ width: 36 }} />
@@ -599,7 +619,7 @@ export default function ProfileScreen() {
             <TextInput
               style={styles.sheetInput}
               placeholder="e.g. 25"
-              placeholderTextColor="#333"
+              placeholderTextColor="#555"
               value={editAge}
               onChangeText={setEditAge}
               keyboardType="number-pad"
@@ -610,7 +630,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.sheetInputFlex}
                 placeholder={editWeightUnit === "kg" ? "e.g. 75" : "e.g. 165"}
-                placeholderTextColor="#333"
+                placeholderTextColor="#555"
                 value={editWeight}
                 onChangeText={setEditWeight}
                 keyboardType="decimal-pad"
@@ -643,7 +663,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.sheetInputFlex}
                 placeholder={editHeightUnit === "cm" ? "e.g. 175" : "e.g. 5.9"}
-                placeholderTextColor="#333"
+                placeholderTextColor="#555"
                 value={editHeight}
                 onChangeText={setEditHeight}
                 keyboardType="decimal-pad"
@@ -786,12 +806,19 @@ export default function ProfileScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#050505" },
+  absoluteGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
   content: { paddingBottom: 40 },
   centered: {
     flex: 1,
@@ -805,32 +832,53 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 8,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#800000",
+  avatarGradientBorder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    padding: 2, // Spacing for gradient border
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    shadowColor: "#b30000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 8,
   },
-  avatarText: { color: "#fff", fontSize: 26, fontWeight: "500" },
-  displayName: { color: "#fff", fontSize: 20, fontWeight: "500" },
+  avatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 38,
+    backgroundColor: "#121212",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "#fff", fontSize: 26, fontWeight: "600" },
+  displayName: { color: "#fff", fontSize: 20, fontWeight: "600" },
   emailText: { color: "#666", fontSize: 13 },
   sectionLabel: {
-    color: "#555",
-    fontSize: 11,
-    letterSpacing: 1,
+    color: "#444",
+    fontSize: 10,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 6,
+    paddingTop: 20,
+    paddingBottom: 8,
+    fontWeight: "700",
   },
   card: {
     marginHorizontal: 16,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 12,
+    backgroundColor: "#0d0d0d",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#161616",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 2,
   },
   row: {
     flexDirection: "row",
@@ -839,7 +887,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#2a2a2a",
+    borderBottomColor: "#181818",
   },
   rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   rowIcon: {
@@ -848,66 +896,73 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(179, 0, 0, 0.08)",
   },
-  rowLabel: { color: "#e0e0e0", fontSize: 14 },
-  rowRight: { flexDirection: "row", alignItems: "center", gap: 6 },
-  rowValue: { color: "#555", fontSize: 13 },
+  rowLabel: { color: "#e0e0e0", fontSize: 14, fontWeight: "500" },
+  rowRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  rowValue: { color: "#888", fontSize: 13 },
   chevron: { color: "#444", fontSize: 18 },
   unitToggle: {
     flexDirection: "row",
     backgroundColor: "#111",
     borderRadius: 8,
     borderWidth: 0.5,
-    borderColor: "#333",
+    borderColor: "#222",
     overflow: "hidden",
   },
   unitBtn: { paddingVertical: 5, paddingHorizontal: 14 },
-  unitBtnActive: { backgroundColor: "#800000" },
-  unitBtnTextActive: { color: "#fff", fontSize: 13, fontWeight: "500" },
+  unitBtnActive: { backgroundColor: "#b30000" },
+  unitBtnTextActive: { color: "#fff", fontSize: 13, fontWeight: "600" },
   unitBtnTextInactive: { color: "#555", fontSize: 13 },
   logoutBtn: {
     marginHorizontal: 16,
     marginTop: 24,
-    backgroundColor: "#800000",
+    backgroundColor: "transparent",
     borderRadius: 12,
-    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: "#b30000",
+    paddingVertical: 14,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
-  logoutText: { color: "#fff", fontSize: 15, fontWeight: "500" },
+  logoutText: { color: "#b30000", fontSize: 15, fontWeight: "600" },
   deleteBtn: {
     marginHorizontal: 16,
-    marginTop: 10,
+    marginTop: 12,
     borderRadius: 12,
-    borderWidth: 0.5,
-    borderColor: "#3a1a1a",
-    paddingVertical: 15,
+    paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
-  deleteText: { color: "#8B1A1A", fontSize: 14 },
+  deleteText: { color: "#555", fontSize: 13, fontWeight: "500" },
   versionText: {
     textAlign: "center",
-    color: "#333",
+    color: "#2a2a2a",
     fontSize: 11,
-    marginTop: 24,
+    marginTop: 28,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     padding: 24,
   },
   modalCard: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#0d0d0d",
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1a1a1a",
     padding: 24,
     gap: 16,
   },
-  modalTitle: { color: "#fff", fontSize: 17, fontWeight: "500" },
+  modalTitle: { color: "#fff", fontSize: 17, fontWeight: "600" },
   modalInput: {
-    backgroundColor: "#111",
-    borderWidth: 0.5,
-    borderColor: "#333",
-    borderRadius: 8,
+    backgroundColor: "#121212",
+    borderWidth: 1,
+    borderColor: "#222",
+    borderRadius: 10,
     color: "#fff",
     fontSize: 15,
     paddingHorizontal: 14,
@@ -918,31 +973,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     alignItems: "center",
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: "#333",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#222",
   },
   modalCancelText: { color: "#888", fontSize: 14 },
   modalSaveBtn: {
     flex: 1,
     paddingVertical: 13,
     alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#800000",
+    borderRadius: 10,
+    backgroundColor: "#b30000",
   },
-  modalSaveText: { color: "#fff", fontSize: 14, fontWeight: "500" },
+  modalSaveText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   deleteModalBody: { color: "#888", fontSize: 14, lineHeight: 20 },
   deleteModalPrompt: { color: "#aaa", fontSize: 13 },
   deleteConfirmBtn: {
     flex: 1,
     paddingVertical: 13,
     alignItems: "center",
-    borderRadius: 8,
-    backgroundColor: "#8B1A1A",
+    borderRadius: 10,
+    backgroundColor: "#b30000",
   },
 
   // Body stats sheet
-  sheetContainer: { flex: 1, backgroundColor: "#0a0a0a" },
+  sheetContainer: { flex: 1, backgroundColor: "#070707" },
   sheetTopBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -951,17 +1006,18 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#1a1a1a",
+    borderBottomColor: "#161616",
   },
   sheetCloseBtn: {
     width: 36,
     height: 36,
-    backgroundColor: "#161616",
+    backgroundColor: "#121212",
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#222",
   },
-  sheetCloseBtnText: { color: "#fff", fontSize: 14 },
   sheetTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
   sheetScroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 48 },
   sheetLabel: {
@@ -971,9 +1027,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 10,
     marginTop: 4,
+    fontWeight: "700",
   },
   sheetInput: {
-    backgroundColor: "#161616",
+    backgroundColor: "#121212",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -991,7 +1048,7 @@ const styles = StyleSheet.create({
   },
   sheetInputFlex: {
     flex: 1,
-    backgroundColor: "#161616",
+    backgroundColor: "#121212",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1004,24 +1061,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: "#161616",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#121212",
     borderWidth: 1,
     borderColor: "#222",
   },
   chipSelected: {
-    backgroundColor: "rgba(128,0,0,0.15)",
-    borderColor: "rgba(128,0,0,0.5)",
+    backgroundColor: "rgba(179, 0, 0, 0.12)",
+    borderColor: "#b30000",
   },
-  chipText: { color: "#555", fontSize: 13 },
+  chipText: { color: "#888", fontSize: 13, fontWeight: "500" },
   chipTextSelected: { color: "#fff", fontWeight: "600" },
   saveStatsBtn: {
-    backgroundColor: "#800000",
+    backgroundColor: "#b30000",
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",

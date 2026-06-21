@@ -6,17 +6,18 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 import { useWeightUnit } from "../../lib/WeightUnitContext";
+
 interface Exercise {
   id: string;
   name: string;
@@ -59,7 +60,7 @@ export default function SessionScreen() {
     if (!id) return;
     fetchSessionData();
   }, [id]);
-  // Keep refs in sync with state so auto-save can access latest values
+
   useEffect(() => {
     setsRef.current = sets;
   }, [sets]);
@@ -72,7 +73,6 @@ export default function SessionScreen() {
     if (!startedAt) return;
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Set correct elapsed immediately, no flicker
     setElapsed(Math.floor((Date.now() - startedAt) / 1000));
 
     timerRef.current = setInterval(() => {
@@ -86,7 +86,6 @@ export default function SessionScreen() {
   useFocusEffect(
     useCallback(() => {
       return () => {
-        // Fires when screen loses focus — auto-save current sets
         autoSaveSets();
       };
     }, []),
@@ -118,11 +117,10 @@ export default function SessionScreen() {
 
     if (allSets.length === 0) return;
 
-    // Delete existing in-progress sets for this session then re-insert
     await supabase.from("session_sets").delete().eq("session_id", id);
-
     await supabase.from("session_sets").insert(allSets);
   }
+
   function openSidebar() {
     setSidebarOpen(true);
     Animated.timing(sidebarAnim, {
@@ -156,119 +154,133 @@ export default function SessionScreen() {
   });
 
   async function fetchSessionData() {
-    const { data: session } = await supabase
-      .from("sessions")
-      .select("program_day_id, started_at")
-      .eq("id", id)
-      .single();
+    console.log("⚙️ Fetching data for Session ID:", id);
+    try {
+      const { data: session, error: sessionError } = await supabase
+        .from("sessions")
+        .select("program_day_id, started_at")
+        .eq("id", id)
+        .single();
 
-    if (!session) return;
+      if (sessionError || !session) {
+        console.error("❌ Supabase Session query failed:", sessionError);
+        Alert.alert(
+          "Session Missing",
+          sessionError?.message ||
+            "Could not retrieve current session. Verify database connection and RLS policies.",
+        );
+        setLoading(false);
+        return;
+      }
 
-    const startMs = new Date(session.started_at).getTime();
-    setStartedAt(startMs);
-    // Fix timer
-    const [programExercisesRes, savedSetsRes] = await Promise.all([
-      supabase
-        .from("program_exercises")
-        .select(
-          "id, order_index, target_sets, target_reps, exercises(id, name)",
-        )
-        .eq("program_day_id", session.program_day_id)
-        .order("order_index"),
-      supabase
-        .from("session_sets")
-        .select(
-          "program_exercise_id, set_number, weight_used, reps_done, is_extra",
-        )
-        .eq("session_id", id),
-    ]);
+      const startMs = new Date(session.started_at).getTime();
+      setStartedAt(startMs);
 
-    const programExercises = programExercisesRes.data;
+      const [programExercisesRes, savedSetsRes] = await Promise.all([
+        supabase
+          .from("program_exercises")
+          .select(
+            "id, order_index, target_sets, target_reps, exercises(id, name)",
+          )
+          .eq("program_day_id", session.program_day_id)
+          .order("order_index"),
+        supabase
+          .from("session_sets")
+          .select(
+            "program_exercise_id, set_number, weight_used, reps_done, is_extra",
+          )
+          .eq("session_id", id),
+      ]);
 
-    if (!programExercises) return;
+      if (programExercisesRes.error) {
+        console.error(
+          "❌ Error fetching exercises:",
+          programExercisesRes.error.message,
+        );
+      }
 
-    // Build saved sets lookup
-    const savedLookup: Record<
-      string,
-      Record<number, { weight_used: number; reps_done: number }>
-    > = {};
-    if (savedSetsRes.data) {
-      savedSetsRes.data.forEach((s) => {
-        if (!savedLookup[s.program_exercise_id])
-          savedLookup[s.program_exercise_id] = {};
-        savedLookup[s.program_exercise_id][s.set_number] = {
-          weight_used: s.weight_used,
-          reps_done: s.reps_done,
-        };
-      });
-    }
+      const programExercises = programExercisesRes.data;
 
-    // Previous-session history temporarily disabled — do not fetch prior sets
-    let prevSetsLookup: Record<
-      string,
-      { set_number: number; weight_used: number; reps_done: number }[]
-    > = {};
+      if (!programExercises || programExercises.length === 0) {
+        Alert.alert(
+          "No exercises found",
+          "This day doesn't have any exercises configured yet.",
+          [
+            {
+              text: "Go to Programs",
+              onPress: () => router.replace("/(tabs)/programs"),
+            },
+          ],
+        );
+        setExercises([]);
+        setSets({});
+        setLoading(false);
+        return;
+      }
 
-    const enriched = programExercises.map((pe) => {
-      const exercise = Array.isArray(pe.exercises)
-        ? pe.exercises[0]
-        : (pe.exercises as unknown as Exercise);
+      const enriched = programExercises.map((pe) => {
+        const exercise = Array.isArray(pe.exercises)
+          ? pe.exercises[0]
+          : (pe.exercises as unknown as Exercise);
 
-      // history removed for now — keep previousSets empty
-      const previousSets: any[] = [];
+        const previousSets: any[] = [];
 
-      return {
-        id: pe.id,
-        order_index: pe.order_index,
-        target_sets: pe.target_sets,
-        target_reps: pe.target_reps,
-        exercise,
-        previousSets,
-      };
-    });
-
-    setExercises(enriched);
-
-    const initialSets: Record<string, LoggedSet[]> = {};
-    enriched.forEach((pe) => {
-      const savedSetsForPe =
-        savedSetsRes.data?.filter((s) => s.program_exercise_id === pe.id) || [];
-      const savedBySetNumber: Record<number, any> = {};
-      savedSetsForPe.forEach((s) => {
-        savedBySetNumber[s.set_number] = s;
-      });
-
-      // Build target sets, overriding with saved data where available
-      const targetSets = Array.from({ length: pe.target_sets }, (_, i) => {
-        const saved = savedBySetNumber[i + 1];
         return {
-          set_number: i + 1,
-          weight_used:
-            saved?.weight_used ?? pe.previousSets[i]?.weight_used ?? 0,
-          reps_done: saved?.reps_done ?? pe.previousSets[i]?.reps_done ?? 0,
-          done: !!saved,
-          isExtra: false,
+          id: pe.id,
+          order_index: pe.order_index,
+          target_sets: pe.target_sets,
+          target_reps: pe.target_reps,
+          exercise,
+          previousSets,
         };
       });
 
-      // Append any extra sets (set_number > target_sets)
-      const extraSets = savedSetsForPe
-        .filter((s) => s.set_number > pe.target_sets)
-        .sort((a, b) => a.set_number - b.set_number)
-        .map((s) => ({
-          set_number: s.set_number,
-          weight_used: s.weight_used,
-          reps_done: s.reps_done,
-          done: true,
-          isExtra: true,
-        }));
+      setExercises(enriched);
 
-      initialSets[pe.id] = [...targetSets, ...extraSets];
-    });
+      const initialSets: Record<string, LoggedSet[]> = {};
+      enriched.forEach((pe) => {
+        const savedSetsForPe =
+          savedSetsRes.data?.filter((s) => s.program_exercise_id === pe.id) ||
+          [];
+        const savedBySetNumber: Record<number, any> = {};
+        savedSetsForPe.forEach((s) => {
+          savedBySetNumber[s.set_number] = s;
+        });
 
-    setSets(initialSets);
-    setLoading(false);
+        const targetSets = Array.from({ length: pe.target_sets }, (_, i) => {
+          const saved = savedBySetNumber[i + 1];
+          return {
+            set_number: i + 1,
+            weight_used:
+              saved?.weight_used ?? pe.previousSets[i]?.weight_used ?? 0,
+            reps_done: saved?.reps_done ?? pe.previousSets[i]?.reps_done ?? 0,
+            done: !!saved,
+            isExtra: false,
+          };
+        });
+
+        const extraSets = savedSetsForPe
+          .filter((s) => s.set_number > pe.target_sets)
+          .sort((a, b) => a.set_number - b.set_number)
+          .map((s) => ({
+            set_number: s.set_number,
+            weight_used: s.weight_used,
+            reps_done: s.reps_done,
+            done: true,
+            isExtra: true,
+          }));
+
+        initialSets[pe.id] = [...targetSets, ...extraSets];
+      });
+
+      setSets(initialSets);
+    } catch (err) {
+      console.error("❌ Unexpected crash inside fetchSessionData:", err);
+    } finally {
+      setLoading(false);
+    }
   }
+
   async function saveSetToDb(
     peId: string,
     setIndex: number,
@@ -279,7 +291,7 @@ export default function SessionScreen() {
     if (!set || !exercise || !id) return;
     if (set.weight_used === 0 && set.reps_done === 0) return;
 
-    const { error } = await supabase.from("session_sets").upsert(
+    await supabase.from("session_sets").upsert(
       {
         session_id: id,
         program_exercise_id: peId,
@@ -296,6 +308,7 @@ export default function SessionScreen() {
       },
     );
   }
+
   function formatTime(seconds: number) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -336,18 +349,6 @@ export default function SessionScreen() {
     });
   }
 
-  function logNextSet() {
-    const peId = currentExercise?.id;
-    if (!peId) return;
-    const nextIndex = getNextUndoneSetIndex(peId);
-    if (nextIndex === -1) return;
-    setSets((prev) => {
-      const updated = [...(prev[peId] || [])];
-      updated[nextIndex] = { ...updated[nextIndex], done: true };
-      return { ...prev, [peId]: updated };
-    });
-  }
-
   function toggleSetDone(peId: string, setIndex: number) {
     setSets((prev) => {
       const updated = [...(prev[peId] || [])];
@@ -360,6 +361,7 @@ export default function SessionScreen() {
       return newSets;
     });
   }
+
   function addSet(peId: string) {
     setSets((prev) => {
       const existing = prev[peId] || [];
@@ -374,29 +376,19 @@ export default function SessionScreen() {
       return { ...prev, [peId]: [...existing, newSet] };
     });
   }
+
   function removeSet(peId: string, setIndex: number) {
     setSets((prev) => {
       const updated = prev[peId].filter((_, i) => i !== setIndex);
-      // Renumber set_number after removal
       return {
         ...prev,
         [peId]: updated.map((s, i) => ({ ...s, set_number: i + 1 })),
       };
     });
   }
-  async function saveAllSets() {
-    // Step 1: collect all sets to save
-    const allSets: {
-      session_id: string;
-      program_exercise_id: string;
-      exercise_id: string;
-      set_number: number;
-      weight_used: number;
-      reps_done: number;
-      weight_unit: "kg";
-      is_pr: boolean;
-    }[] = [];
 
+  async function saveAllSets() {
+    const allSets: any[] = [];
     exercises.forEach((pe) => {
       const peSets = sets[pe.id] || [];
       peSets.forEach((set) => {
@@ -417,17 +409,13 @@ export default function SessionScreen() {
 
     if (allSets.length === 0) return;
 
-    // Step 2: get unique exercise IDs from this session
     const exerciseIds = [...new Set(allSets.map((s) => s.exercise_id))];
-
-    // Step 3: fetch historical max weight per exercise (completed sessions only, not this one)
     const { data: historicalSets } = await supabase
       .from("session_sets")
       .select("exercise_id, weight_used")
       .in("exercise_id", exerciseIds)
       .neq("session_id", id);
 
-    // Step 4: build a lookup map — exercise_id → historical max
     const historicalMax: Record<string, number> = {};
     (historicalSets ?? []).forEach((s) => {
       if (
@@ -438,8 +426,6 @@ export default function SessionScreen() {
       }
     });
 
-    // Step 5: determine PRs — track session-level max too so only the
-    // heaviest set in this session gets flagged, not every set that beats history
     const sessionMax: Record<string, number> = {};
     allSets.forEach((set) => {
       if (
@@ -457,12 +443,10 @@ export default function SessionScreen() {
       set.is_pr = isSessionMax && beatsHistory;
     });
 
-    // Step 6: save
     await supabase.from("session_sets").insert(allSets);
   }
 
   async function finishSession() {
-    // Check if any sets have been logged
     const hasLoggedSets = Object.values(sets).some((peSets) =>
       peSets.some(
         (set) => set.done || (set.weight_used > 0 && set.reps_done > 0),
@@ -470,17 +454,13 @@ export default function SessionScreen() {
     );
 
     if (!hasLoggedSets) {
-      Alert.alert(
-        "No sets logged",
-        "You haven't logged any sets yet. Log at least one set before finishing.",
-        [{ text: "OK" }],
-      );
+      Alert.alert("No sets logged", "Log at least one set before finishing.");
       return;
     }
 
     Alert.alert(
       "Finish session?",
-      "This will save all logged sets and mark the session as complete.",
+      "This will save all sets and mark it complete.",
       [
         {
           text: "Finish",
@@ -505,7 +485,7 @@ export default function SessionScreen() {
   async function abandonSession() {
     Alert.alert(
       "Abandon session?",
-      "Your logged sets will be saved but marked as abandoned.",
+      "Your metrics will be stored as abandoned.",
       [
         {
           text: "Abandon",
@@ -584,16 +564,6 @@ export default function SessionScreen() {
             Target: {currentExercise?.target_sets} sets ×{" "}
             {currentExercise?.target_reps} reps
           </Text>
-          {currentExercise?.previousSets?.length > 0 && (
-            <Text style={styles.exPrev}>
-              Last:{" "}
-              {currentExercise.previousSets
-                .map(
-                  (s) => `${toDisplay(s.weight_used)}${unit} × ${s.reps_done}`,
-                )
-                .join(", ")}
-            </Text>
-          )}
         </View>
 
         <View style={styles.exCard}>
@@ -628,12 +598,10 @@ export default function SessionScreen() {
                       : "")
                   }
                   onChangeText={(v) => {
-                    // Store raw string while typing
                     setWeightInputs((prev) => ({
                       ...prev,
                       [`${currentExercise.id}-${i}`]: v,
                     }));
-                    // Only convert and save if it's a valid number
                     const num = parseFloat(v);
                     if (!isNaN(num)) {
                       updateSet(
@@ -645,7 +613,6 @@ export default function SessionScreen() {
                     }
                   }}
                   onBlur={() => {
-                    // Clean up raw input on blur — format it properly
                     const key = `${currentExercise.id}-${i}`;
                     const num = parseFloat(weightInputs[key] ?? "");
                     if (!isNaN(num)) {
@@ -740,11 +707,11 @@ export default function SessionScreen() {
       </ScrollView>
 
       {sidebarOpen && (
-        <TouchableWithoutFeedback onPress={closeSidebar}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeSidebar}>
           <Animated.View
             style={[styles.overlay, { opacity: overlayOpacity }]}
           />
-        </TouchableWithoutFeedback>
+        </Pressable>
       )}
 
       {sidebarOpen && (
@@ -861,7 +828,6 @@ const styles = StyleSheet.create({
   mainContent: { paddingHorizontal: 16, paddingBottom: 40 },
   exMeta: { marginBottom: 14 },
   exTarget: { color: "#555", fontSize: 12, marginBottom: 4 },
-  exPrev: { color: "#800000", fontSize: 12 },
   exCard: {
     backgroundColor: "#111",
     borderRadius: 14,
@@ -908,19 +874,6 @@ const styles = StyleSheet.create({
   checkBtnDone: { backgroundColor: "#800000" },
   checkText: { color: "#444", fontSize: 16 },
   checkTextDone: { color: "#fff" },
-  logBtn: {
-    backgroundColor: "#800000",
-    borderRadius: 12,
-    paddingVertical: 18,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  logBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
   navRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   navBtn: {
     flex: 1,
