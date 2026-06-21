@@ -47,17 +47,11 @@ export default function LoginScreen() {
     return "";
   };
 
+  // Login shouldn't enforce the same password strength rules as register.
+  // We only validate presence here; Supabase will verify the password matches.
   const validatePassword = (text: string) => {
     if (!text) {
       return "Password is required";
-    } else if (text.length < 8) {
-      return "Password must be at least 8 characters";
-    } else if (!/[A-Z]/.test(text)) {
-      return "Password must contain at least one uppercase letter";
-    } else if (!/[a-z]/.test(text)) {
-      return "Password must contain at least one lowercase letter";
-    } else if (!/[0-9]/.test(text)) {
-      return "Password must contain at least one number";
     }
     return "";
   };
