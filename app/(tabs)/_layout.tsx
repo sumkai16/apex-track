@@ -17,9 +17,11 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 
 export default function TabLayout() {
   const [fabOpen, setFabOpen] = useState(false);
+  const [generateEnabled, setGenerateEnabled] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
 
   function toggleFab() {
+    setGenerateEnabled(true);
     const toValue = fabOpen ? 0 : 1;
     Animated.spring(animation, {
       toValue,
@@ -36,6 +38,7 @@ export default function TabLayout() {
       friction: 6,
     }).start();
     setFabOpen(false);
+    setGenerateEnabled(false);
   }
 
   const rotation = animation.interpolate({
@@ -175,21 +178,16 @@ export default function TabLayout() {
         {/* Generate Program — active */}
         <Animated.View style={[styles.fabOptionRow, option1Style]}>
           <TouchableOpacity
-            style={styles.fabLabel}
-            onPress={() => {
-              closeFab();
-              router.push("/ai/generate-program");
-            }}
+            style={generateEnabled ? styles.fabLabel : styles.fabLabelDisabled}
+            onPress={generateEnabled ? () => { closeFab(); router.push("/ai/generate-program"); } : undefined}
             activeOpacity={0.8}
           >
-            <Text style={styles.fabLabelText}>Generate Program</Text>
+            <Text style={generateEnabled ? styles.fabLabelText : styles.fabLabelTextDisabled}>Generate Program</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.fabOptionBtn}
             onPress={() => {
-              closeFab();
-              router.push("/ai/generate-program");
-            }}
+              }}
             activeOpacity={0.8}
           >
             <Ionicons name="sparkles-outline" size={18} color="#fff" />

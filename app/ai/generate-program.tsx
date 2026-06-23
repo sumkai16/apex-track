@@ -28,6 +28,9 @@ export default function GenerateProgramScreen() {
     const [loading, setLoading] = useState(true)
     const [generating, setGenerating] = useState(false)
 
+    // AI toggle state - must be activated to enable Generate button
+    const [aiActivated, setAiActivated] = useState(false)
+
     useEffect(() => {
         fetchData()
     }, [])
