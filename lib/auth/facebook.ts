@@ -61,13 +61,9 @@ export async function signInWithFacebook(): Promise<FacebookSignInResult> {
 
     const isNewUser = !existingProfile;
 
-    // TEMP — Facebook metadata key names unconfirmed. Check this log on first real
-    // test, then delete it and the fallback chains below once you know what's real.
-    console.log('Facebook user_metadata:', user.user_metadata);
-
     const metadata = user.user_metadata ?? {};
-    const suggestedName = metadata.full_name ?? metadata.name ?? undefined;
-    const avatarUrl = metadata.avatar_url ?? metadata.picture?.data?.url ?? metadata.picture ?? undefined;
+    const suggestedName = metadata.full_name ?? '';
+    const avatarUrl = metadata.avatar_url ?? '';
 
     return { success: true, isNewUser, suggestedName, avatarUrl };
   } catch (err: any) {

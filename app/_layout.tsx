@@ -8,6 +8,7 @@ export const registeringFlag = { value: false }
 export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (registeringFlag.value) return
       if (session) {
         router.replace('/(tabs)/home')
       } else {

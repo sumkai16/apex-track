@@ -126,7 +126,7 @@ export default function HomeScreen() {
         .from("profiles")
         .select("display_name")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       setDisplayName(data?.display_name ?? "");
     } catch (err) {
