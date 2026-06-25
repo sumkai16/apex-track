@@ -179,15 +179,29 @@ export default function TabLayout() {
         <Animated.View style={[styles.fabOptionRow, option1Style]}>
           <TouchableOpacity
             style={generateEnabled ? styles.fabLabel : styles.fabLabelDisabled}
-            onPress={generateEnabled ? () => { closeFab(); router.push("/ai/generate-program"); } : undefined}
+            onPress={
+              generateEnabled
+                ? () => {
+                    closeFab();
+                    router.push("/ai/generate-program");
+                  }
+                : undefined
+            }
             activeOpacity={0.8}
           >
-            <Text style={generateEnabled ? styles.fabLabelText : styles.fabLabelTextDisabled}>Generate Program</Text>
+            <Text
+              style={
+                generateEnabled
+                  ? styles.fabLabelText
+                  : styles.fabLabelTextDisabled
+              }
+            >
+              Generate Program
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.fabOptionBtn}
-            onPress={() => {
-              }}
+            onPress={() => {}}
             activeOpacity={0.8}
           >
             <Ionicons name="sparkles-outline" size={18} color="#fff" />
