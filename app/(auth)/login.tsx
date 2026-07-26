@@ -99,6 +99,7 @@ export default function LoginScreen() {
     }
   }
   async function handleGoogleSignIn() {
+    registeringFlag.value = true;
     setGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
@@ -109,10 +110,14 @@ export default function LoginScreen() {
             params: { suggestedName: result.suggestedName ?? '', avatarUrl: result.avatarUrl ?? '' },
           });
         } else {
+          registeringFlag.value = false;
           router.replace('/(tabs)/home');
         }
+      } else {
+        registeringFlag.value = false;
       }
     } catch (err: any) {
+      registeringFlag.value = false;
       Alert.alert('Google sign-in failed', err.message ?? 'Please try again.');
     } finally {
       setGoogleLoading(false);

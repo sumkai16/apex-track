@@ -330,7 +330,7 @@ export default function CreateProgramScreen() {
 
         <Text style={styles.sectionLabel}>WEEKLY SCHEDULE</Text>
         <Text style={styles.scheduleHint}>
-          Your program will have 7 day slots. You'll add exercises to each day
+          Your program will have 7 day slots. You&apos;ll add exercises to each day
           on the next screen.
         </Text>
 

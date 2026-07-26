@@ -1,6 +1,7 @@
 // app/(auth)/confirm-name.tsx
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { registeringFlag } from '../_layout';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -27,6 +28,7 @@ export default function ConfirmNameScreen() {
             });
             if (error) throw error;
 
+            registeringFlag.value = false;
             router.replace('/(tabs)/home');
         } catch (err: any) {
             Alert.alert("Couldn't save profile", err.message ?? 'Please try again.');

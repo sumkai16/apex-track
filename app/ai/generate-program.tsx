@@ -299,7 +299,7 @@ Rules:
           </Text>
         </View>
         <Text style={styles.headerSub}>
-          Answer the questions below and we'll generate a science-based training
+          Answer the questions below and we&apos;ll generate a science-based training
           program tailored to you.
         </Text>
 
