@@ -41,6 +41,11 @@ export default function TabLayout() {
     setGenerateEnabled(false);
   }
 
+  function openChat() {
+    closeFab();
+    router.push("/ai/chat");
+  }
+
   const rotation = animation.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "45deg"],
@@ -164,15 +169,30 @@ export default function TabLayout() {
           </View>
         </Animated.View>
 
-        {/* AI Coach — coming soon */}
+        {/* AI Coach — active */}
         <Animated.View style={[styles.fabOptionRow, option2Style]}>
-          <View style={styles.fabLabelDisabled}>
-            <Text style={styles.fabLabelTextDisabled}>AI Coach</Text>
-            <Text style={styles.comingSoon}>soon</Text>
-          </View>
-          <View style={[styles.fabOptionBtn, styles.fabOptionBtnDisabled]}>
-            <Ionicons name="chatbubble-outline" size={18} color="#444" />
-          </View>
+          <TouchableOpacity
+            style={generateEnabled ? styles.fabLabel : styles.fabLabelDisabled}
+            onPress={generateEnabled ? openChat : undefined}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={
+                generateEnabled
+                  ? styles.fabLabelText
+                  : styles.fabLabelTextDisabled
+              }
+            >
+              AI Coach
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fabOptionBtn}
+            onPress={generateEnabled ? openChat : undefined}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Generate Program — active */}
