@@ -120,12 +120,50 @@ program_exercises 1—* session_sets
 ```
 
 ## RLS
-Not inspected here — every query in `app/` filters by `user_id`/`id` client-side
-(e.g. `.eq("user_id", user.id)`), which only protects the app's own UI, not the
-data itself. Whether Postgres RLS policies actually enforce per-user isolation at
-the database level needs verifying directly in the Supabase dashboard before
-treating this app as safe against a malicious client bypassing the app UI and
-calling the API directly with a stolen anon key + someone else's JWT.
+**Audited 2026-08-24, before the first public APK.** RLS is enabled on every
+table, and each user table is scoped to `auth.uid()`:
+
+| Table | Predicate |
+|---|---|
+| `profiles` | `auth.uid() = id` |
+| `programs` | `auth.uid() = user_id` |
+| `sessions` | `auth.uid() = user_id` |
+| `program_days` | `EXISTS` → `programs.user_id = auth.uid()` |
+| `program_exercises` | `EXISTS` → `program_days` ⋈ `programs.user_id = auth.uid()` |
+| `session_sets` | `EXISTS` → `sessions.user_id = auth.uid()` |
+| `exercises` | `is_system = true` (public read) or `auth.uid() = created_by` |
+| `ai_generator_questions` | `true`, `authenticated` only — shared config |
+
+Most policies are granted to `{public}` rather than `{authenticated}`. That is
+safe **only** because `auth.uid()` is null for anonymous callers, so the
+predicates match nothing — verified empirically: an anon-key read of `profiles`,
+`programs`, `sessions`, `session_sets` and `program_exercises` returns `[]`.
+Scoping them to `{authenticated}` would be tidier and stop relying on that.
+
+### Two vulnerabilities found and fixed — do not reintroduce
+`program_exercises` carried two extra policies granted to `authenticated` that
+**overrode** the ownership policy beside them (policies are OR'd, so the most
+permissive wins):
+
+- `Allow users to view program exercises` — `SELECT`, `USING (true)`: every
+  signed-in user could read **all** users' program contents.
+- `Allow users to insert program exercises` — `INSERT`, `WITH CHECK (true)`: no
+  check whatsoever, so any signed-in user could write a row into **any**
+  `program_day`.
+
+They chained: `program_days` correctly hides other users' day ids, but the first
+policy handed them out anyway on every `program_exercises` row, and the second
+let you write to them. Both dropped. `exercises`' insert check was also widened
+from `auth.uid() = created_by` to additionally require `is_system = false`, so a
+user can't plant a fake system exercise into the shared catalogue.
+
+**The lesson for new policies: a permissive policy does not narrow an existing
+one, it widens the table.** Adding a convenience `USING (true)` policy next to a
+correct ownership policy silently disables it.
+
+Note that client-side `.eq("user_id", user.id)` filters in `app/` are for
+correctness and query size, not security — the database is what enforces
+isolation.
 
 ## Cleanup / cascade behavior
 `(tabs)/profile.tsx`'s account-deletion flow manually deletes in dependency order
