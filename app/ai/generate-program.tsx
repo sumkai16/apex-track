@@ -77,89 +77,36 @@ export default function GenerateProgramScreen() {
     setGenerating(true);
 
     try {
-      const { data: exercises } = await supabase
-        .from("exercises")
-        .select("id, name, category, equipment_type");
-
-      if (!exercises || exercises.length === 0) {
-        Alert.alert("Error", "No exercises found in the database.");
-        setGenerating(false);
-        return;
-      }
-
-      const exerciseList = exercises
-        .map(
-          (e) =>
-            `- ${e.name} (id: ${e.id}, category: ${e.category}, equipment: ${e.equipment_type})`,
-        )
-        .join("\n");
-
-      const answerSummary = questions
-        .map((q) => `${q.field_key}: ${answers[q.field_key]}`)
-        .join("\n");
-
-      const daysMatch = answers["days_per_week"]?.match(/\d+/);
-      const daysPerWeek = daysMatch ? parseInt(daysMatch[0]) : 4;
-
-      const prompt = `You are a certified strength and conditioning coach with expertise in evidence-based training. Generate a personalized training program based on the following user profile:
-
-${answerSummary}
-
-You MUST only use exercises from this exact list. Use the exact id values provided:
-${exerciseList}
-
-Respond ONLY with a valid JSON object in this exact format, no explanation, no markdown:
-{
-  "program_name": "string",
-  "description": "string (1-2 sentences, science-based rationale)",
-  "days": [
-    {
-      "name": "string (e.g. Upper Body A)",
-      "day_order": 0,
-      "exercises": [
-        {
-          "exercise_id": "uuid from the list above",
-          "target_sets": number,
-          "target_reps": number,
-          "order_index": 0
-        }
-      ]
-    }
-  ]
-}
-
-Rules:
-- Only include ${daysPerWeek} training days (no rest days in the array)
-- Adjust exercises per day based on session_duration (30-45 min = 3-4 exercises, 45-60 min = 4-5, 60-90 min = 5-6)
-- Avoid exercises that aggravate the user's stated limitations
-- Use progressive overload principles appropriate for the user's level
-- Balance muscle groups appropriately for the stated goal and style
-- Only use exercise IDs from the list provided
-- target_reps should be a single number (e.g. 8, not "8-12")`;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.EXPO_PUBLIC_GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7 },
-          }),
-        },
+      // The prompt, the exercise catalogue and the OpenRouter key all live in
+      // the `generate-program` Edge Function now — the key must not ship in the
+      // app bundle. The function also validates the returned exercise ids
+      // against the catalogue before we insert them.
+      const { data, error } = await supabase.functions.invoke(
+        "generate-program",
+        { body: { answers } },
       );
 
-      const data = await response.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) throw new Error("No response from AI");
+      if (error) {
+        let message = "Failed to generate program. Please try again.";
+        const context = (error as { context?: Response }).context;
+        if (context && typeof context.json === "function") {
+          const errBody = await context.json().catch(() => null);
+          if (errBody?.error) message = String(errBody.error);
+        }
+        throw new Error(message);
+      }
 
-      const clean = rawText.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
+      if (!data?.program) throw new Error("The AI returned an empty program.");
 
-      await saveProgram(parsed, daysPerWeek);
+      await saveProgram(data.program, data.daysPerWeek ?? 4);
     } catch (err) {
       console.log("Generate error:", err);
-      Alert.alert("Error", "Failed to generate program. Please try again.");
+      Alert.alert(
+        "Error",
+        err instanceof Error
+          ? err.message
+          : "Failed to generate program. Please try again.",
+      );
     } finally {
       setGenerating(false);
     }
